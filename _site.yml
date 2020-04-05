@@ -1,0 +1,14 @@
+name: "sewage-backups"
+output_dir: "docs"
+navbar:
+  title: "Sewage Backups in Baltimore"
+  left:
+  - text: "About"
+    href: index.html
+  - text: "Background"
+    href: background.html
+  - text: "Analysis"
+    href: analysis.html
+output:
+  html_document:
+    theme: journal
