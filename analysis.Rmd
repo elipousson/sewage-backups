@@ -1,0 +1,28 @@
+---
+title: "Analysis of 311 Service Request Data for Basement Sewage Backups"
+author: "Eli Pousson"
+date: "4/4/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Summary
+
+# Background
+
+# Analysis
+
+## Import request data
+
+## Explore request data
+
+## Import demographic data
+
+## Explore request and demographic data
+
+## Regression analysis
+
+# Conclusion
