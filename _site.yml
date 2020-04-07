@@ -9,6 +9,8 @@ navbar:
     href: background.html
   - text: "Analysis"
     href: analysis.html
+  - text: "Discussion"
+    href: discussion.html
 output:
   html_document:
-    theme: journal
+    theme: cosmo
