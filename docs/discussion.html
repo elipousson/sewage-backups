@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+<meta name="author" content="Eli Pousson" />
+<meta name="author" content="Erin Burman" />
+
+
+<title>Discussion of Analysis</title>
+
+<script src="site_libs/header-attrs-2.1/header-attrs.js"></script>
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/cosmo.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+</style>
+
+
+<style type="text/css">
+/* padding for bootstrap navbar */
+body {
+  padding-top: 51px;
+  padding-bottom: 40px;
+}
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h1 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h2 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h3 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h4 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h5 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h6 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script>
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.parent().addClass('active');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Sewage Backups in Baltimore</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="index.html">About</a>
+</li>
+<li>
+  <a href="background.html">Background</a>
+</li>
+<li>
+  <a href="analysis.html">Analysis</a>
+</li>
+<li>
+  <a href="discussion.html">Discussion</a>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+
+
+<h1 class="title toc-ignore">Discussion of Analysis</h1>
+<h4 class="author">Eli Pousson</h4>
+<h4 class="author">Erin Burman</h4>
+<h4 class="date">4/5/2020</h4>
+
+</div>
+
+
+<div id="evidence-for-disparate-impact" class="section level3">
+<h3>Evidence for disparate impact</h3>
+<p>This study found evidence of a disproportionate impact of basement sewage backups on majority-Black neighborhoods in Baltimore City. Substantially higher rates of backup requests in Black neighborhoods remained evident even after controlling for tracts’ median income, age, rent, and housing tenure. This finding support’s Ezell’s original analysis and indicates that the pattern has continued beyond her study period. We also found a strong positive effect of owner-occupancy on the rate of backup requests and a positive relationship between low-medium income versus low income and backup requests.</p>
+<p>Identifying a discrete mechanism underlying racial disparities in backup events is challenging. Patterns of residential segregation and access to public services in Baltimore are shaped by a complex history of discrimination, redlining, public and private disinvestment, fiscal stress, and an aging built environment. Baltimore is a “shrinking city,” with a current population that is substantially smaller and less affluent than it was at its height in the 19th century. In shrinking cities, a declining tax base and aging infrastructure make compliance with increasingly strict environmental regulations challenging <span class="citation">(Faust, Abraham, and McElmurry 2016)</span>.</p>
+<p>This is a plausible framework for understanding the proliferation of, and limited response to, basement sewage backups in Baltimore, but it does not explain why Black neighborhoods appear worse affected than white neighborhoods after controlling for income. To understand this inequity, a more precise understanding of Baltimore’s history and environmental justice theory is necessary. Historic mortgage redlining of majority-Black neighborhoods prevented homeownership and intergenerational wealth building among Black residents, causing poverty in these communities. Prejudice and disinvestment further marginalized these neighborhoods and deprived them of public and private resources <span class="citation">(Zenou and Boccard 2000)</span>.</p>
+<p>Today, infrastructure improvement projects tend to privilege the neighborhoods and normative preferences of the white middle and upper classes <span class="citation">(Finewood, Matsler, and Zivkovich 2019)</span>. Thus, a number of interrelated phenomena influence the disproportionate impact of subpar water and sewer infrastructure on Black communities.</p>
+<p>Our results also indicate that basement sewage backups may occur most frequently to those who are least able to afford them. Most requests came from Census tracts with median incomes below the city and metropolitan means, and a $2,500 maximum on reimbursements potentially exposes residents to cleanup costs that are several times greater than their monthly housing expenses.</p>
+</div>
+<div id="limitations" class="section level3">
+<h3>Limitations</h3>
+<p>Our understanding of the disparate impacts of basement sewage backups is limited by what data is publicly available. We found evidence that the City of Baltimore’s public data about 311 request calls for basement sewage backups is sometimes unreliable or incomplete. For example, it appears that DPW often closes many open request tickets at once, suggesting that data on requests’ time-to-close reflects a bureaucratic process rather than the time that was necessary to address the caller’s problem. This variable is therefore unlikely to be useful. More broadly, it is likely that 311 data does not perfectly reflect the actual burden of basement sewage backups. Anecdotal evidence indicates that low-income residents and residents who fear retaliation are less likely to make 311 calls about basement backups they experience. In our analysis, we also found that the rate of 311 backup calls was much lower in tracts with a smaller percentage of residents owning homes. This could reflect a true reduction in rate in these neighborhoods, but this finding may instead reflect the reduced incentive for renters to report backups, because they are less likely to be financially responsible for cleanup. Unreliable data jeopardizes the City of Baltimore’s stated mission of data transparency and accountability. It also presents challenges for researchers and community members seeking to analyze the data and identify problems with DPW’s responses.</p>
+</div>
+<div id="policy-implications" class="section level3">
+<h3>Policy implications</h3>
+<p>Our project has several implications for future policy. Basement sewage backups disproportionately affect Black residents of Baltimore, as well as residents with low- and middle- incomes, so a policy remedy is clearly necessary. However, there are challenges in addressing disparities in access to public sanitation infrastructure. Legal scholars note that “there is no fundamental right to a basic level of drinking water and sanitation in the United States,” so access to services is instead dictated by a complicated variety of federal, state, and local policies. Additionally, proof of discriminatory intent is generally necessary to win anti-discrimination cases related to water and sewer infrastructure <span class="citation">(<span class="citeproc-not-found" data-reference-id="DavisLetJusticeRoll2015"><strong>???</strong></span>)</span>. Within this complex legal and political landscape, community engagement, transparency, and accountability are all potential avenues to infrastructural equity <span class="citation">(Qureshi 2018)</span>.</p>
+<p>Recent legislation that made water more affordable for Baltimoreans arose from community organizing, grassroots activism, and political advocacy <span class="citation">(<span class="citeproc-not-found" data-reference-id="SwainWaterShutoffsOlder2020"><strong>???</strong></span>)</span>; this victory can serve as an example for those interested in reducing disparities in basement sewage backups. The City of Baltimore can take similar action today and make the Expedited Reimbursement Program available to more residents with a larger payout.</p>
+</div>
+<div id="directions-for-future-work" class="section level3">
+<h3>Directions for future work</h3>
+<p>Future research is necessary to understand the extent of the basement sewage backup crisis in Baltimore City. These studies may include analyses of DPW quarterly report data looking at attributed cause of backups, analyses of DPW quarterly report data on reimbursements, and analyses of effects of wastewater capital improvement projects.</p>
+<p>Future research could also examine the role of spatial autocorrelation in the relationship between demographic factors and service request rates. It is currently unknown whether residual spatial dependence remains after our regression modeling of service requests.</p>
+<div id="refs" class="references hanging-indent">
+<div id="ref-FaustWaterWastewaterInfrastructure2016">
+<p>Faust, Kasey M., Dulcy M. Abraham, and Shawn P. McElmurry. 2016. “Water and Wastewater Infrastructure Management in Shrinking Cities.” <em>Public Works Management &amp; Policy</em> 21 (2): 128–56. <a href="https://doi.org/10.1177/1087724X15606737">https://doi.org/10.1177/1087724X15606737</a>.</p>
+</div>
+<div id="ref-FinewoodGreenInfrastructureHidden2019">
+<p>Finewood, Michael H., A. Marissa Matsler, and Joshua Zivkovich. 2019. “Green Infrastructure and the Hidden Politics of Urban Stormwater Governance in a Postindustrial City.” <em>Annals of the American Association of Geographers</em> 109 (3): 909–25. <a href="https://doi.org/10.1080/24694452.2018.1507813">https://doi.org/10.1080/24694452.2018.1507813</a>.</p>
+</div>
+<div id="ref-QureshiBindingcivilcivic2018">
+<p>Qureshi, Haleemah N. 2018. “Binding Civil and Civic Infrastructure: The Need for Transparency and Accountability in Baltimore’s Water Crisis.” Thesis, Massachusetts Institute of Technology. <a href="https://dspace.mit.edu/handle/1721.1/118205">https://dspace.mit.edu/handle/1721.1/118205</a>.</p>
+</div>
+<div id="ref-ZenouRacialDiscriminationRedlining2000">
+<p>Zenou, Yves, and Nicolas Boccard. 2000. “Racial Discrimination and Redlining in Cities.” <em>Journal of Urban Economics</em> 48 (2): 260–85. <a href="https://doi.org/10.1006/juec.1999.2166">https://doi.org/10.1006/juec.1999.2166</a>.</p>
+</div>
+</div>
+</div>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
+</script>
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

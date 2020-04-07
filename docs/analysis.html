@@ -9,6 +9,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
 
 
+<meta name="author" content="Erin Burman" />
 <meta name="author" content="Eli Pousson" />
 
 
@@ -17,7 +18,7 @@
 <script src="site_libs/header-attrs-2.1/header-attrs.js"></script>
 <script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<link href="site_libs/bootstrap-3.3.5/css/journal.min.css" rel="stylesheet" />
+<link href="site_libs/bootstrap-3.3.5/css/cosmo.min.css" rel="stylesheet" />
 <script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
 <script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
 <script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
@@ -104,33 +105,33 @@ summary {
 <style type="text/css">
 /* padding for bootstrap navbar */
 body {
-  padding-top: 61px;
+  padding-top: 51px;
   padding-bottom: 40px;
 }
 /* offset scroll position for anchor links (for fixed navbar)  */
 .section h1 {
-  padding-top: 66px;
-  margin-top: -66px;
+  padding-top: 56px;
+  margin-top: -56px;
 }
 .section h2 {
-  padding-top: 66px;
-  margin-top: -66px;
+  padding-top: 56px;
+  margin-top: -56px;
 }
 .section h3 {
-  padding-top: 66px;
-  margin-top: -66px;
+  padding-top: 56px;
+  margin-top: -56px;
 }
 .section h4 {
-  padding-top: 66px;
-  margin-top: -66px;
+  padding-top: 56px;
+  margin-top: -56px;
 }
 .section h5 {
-  padding-top: 66px;
-  margin-top: -66px;
+  padding-top: 56px;
+  margin-top: -56px;
 }
 .section h6 {
-  padding-top: 66px;
-  margin-top: -66px;
+  padding-top: 56px;
+  margin-top: -56px;
 }
 .dropdown-submenu {
   position: relative;
@@ -282,6 +283,9 @@ $(document).ready(function () {
 <li>
   <a href="analysis.html">Analysis</a>
 </li>
+<li>
+  <a href="discussion.html">Discussion</a>
+</li>
       </ul>
       <ul class="nav navbar-nav navbar-right">
         
@@ -295,38 +299,789 @@ $(document).ready(function () {
 
 
 <h1 class="title toc-ignore">Analysis of 311 Service Request Data for Basement Sewage Backups</h1>
+<h4 class="author">Erin Burman</h4>
 <h4 class="author">Eli Pousson</h4>
 <h4 class="date">4/4/2020</h4>
 
 </div>
 
 
-<div id="summary" class="section level1">
-<h1>Summary</h1>
+<div id="methods" class="section level1">
+<h1>Methods</h1>
+<div id="data" class="section level2">
+<h2>Data</h2>
+<div id="service-requests" class="section level3">
+<h3>311 service requests</h3>
+<p>Data on 311 calls about basement sewage backups from October 2010 through the present was imported from <a href="https://data.baltimorecity.gov/">Open Baltimore</a> using the RSocrata package. These requests are a proxy for the actual occurrence of basement sewage backups but do have several limitations. The requests include backups attributed to a range of issues including issues within the property’s own plumbing. These latter backups are considered the responsibility of the property owner and are not eligible for the city’s reimbursement program. We also believe that backups may be under-reported by tenants under the assumption that tenants are more likely to report an issue to a landlord who may or may not report to 311. We also assume that property-owners who may be unfamiliar with the reimbursement program may not see the need to report a smaller scale sewage backup.</p>
+<p>The record for each request included columns for the service request number, request created date, status, status date, street address, latitude and longitude. The four types of request status included new, open, closed, open (duplicate), closed (duplicate), and closed (transferred). Our analysis excluded duplicate and transferred requests (n = 195) and any requests created either before or after the January 2017 to February 2020 analysis period (n = 18,994). We calculated the days to close for each request by finding the difference between the created date and status date for those requests with a closed status.</p>
+<p>A small number of requests (n = 68) had missing location information. By using the street address and the U.S. Census Bureau’s Batch Geocoding service, we identified an exact match 72.1% (n = 49), a non-exact match for 14.7% (n = 10) and no match for 1.3% (n = 9) of these requests. Exact and non-exact matches were both included in a total set of requests with locations.</p>
+<p>We then matched the remaining 21,804 requests to the census tract and a neighborhood using the sf R package. Census tract boundaries were imported using the tigris R package and shapefiles with the Baltimore neighborhood boundaries were downloaded from Open Baltimore. Requests included at least one request in 269 of 279 Baltimore neighborhoods (96.4%) and all 200 Census tracts.</p>
+<p>104 requests could not be matched to a Census tract. These included 90.4% (n = 94) located outside the city and 9.6% (n = 10) requests with locations issues that placed them outside the boundaries of any tract in Baltimore City. These requests are included in the analysis of frequency of service requests over time but are excluded from the subsequent regression analysis.</p>
+<p>92 requests could not be matched to a neighborhood. These included approximately 85.9% (n = 79) located outside the city and 14.1% (n = 13) with location issues that placed them outside the boundaries of any neighborhood in Baltimore City.</p>
+<p>We also also matched each tract to a wastewater treatment plant by checking whether tracts were located inside or outside of the service area for the Back River Wastewater Treatment Plant. We traced the boundaries of the service area using a 2004 map (published in the City of Baltimore 2006 Comprehensive Water and Wastewater Treatment Plan) that had been <a href="http://mapwarper.net/maps/46308">georectified using the Map Warper web service</a>. For any tracts that crossed the boundary between the Back River and Patapsco service area, we matched the tract to the service area that contained a majority of the area of the tract.</p>
+<p>When we matched requests to tracts and neighborhoods, we counted the total number of requests and unique addresses for each tract. We also determined the median days to close for each tract. We calculated these aggregate counts for the total period of the analysis and for each full year (2017, 2018, 2019) for use in a sensitivity analysis.</p>
 </div>
-<div id="background" class="section level1">
-<h1>Background</h1>
+<div id="demographic-and-socioeconomic-data-for-census-tracts" class="section level3">
+<h3>Demographic and socioeconomic data for Census tracts</h3>
+<p>Tract-level data on demographic and socioeconomic characteristics were taken from the Census Bureau’s American Community Survey (ACS) 2014-2018 5-year estimates (using the tidycensus R package to import the data). Selected variables for this analysis included:</p>
+<ul>
+<li>Median age (years)</li>
+<li>Median household income ($)</li>
+<li>Total population (count)</li>
+<li>Black population (% of total population)</li>
+<li>Structures built before 1950 (% of total structures)</li>
+<li>Owner-occupied households (% of total households)</li>
+</ul>
+<p>The share of structures built before 1950 is a combination of the variables for structures built before 1939 and structures built between 1940 and 1949 divided by the total number of structures. The other percent variables are calculated as a share of the summary variable for the corresponding ACS table. The median household income was used to generate a quartile with the lowest median income group ($19,375 to $48,092) using as the reference group in the regression analysis.</p>
+</div>
+</div>
 </div>
 <div id="analysis" class="section level1">
 <h1>Analysis</h1>
-<div id="import-request-data" class="section level2">
-<h2>Import request data</h2>
+<div id="exploratory-analysis" class="section level2">
+<h2>Exploratory Analysis</h2>
+<p>Using R, we conducted an exploratory analysis to plot the frequency of 311 service requests for basement sewage back-ups looking at request counts by address, over time (by month, quarter, and year), and over neighborhoods, tracts, and wastewater service areas.</p>
+<div id="address-and-request-counts" class="section level3">
+<h3>Address and request counts</h3>
+<p>There are 12,967 distinct addresses associated with service requests in this period. 37.7% of these addresses (n = 4,887) are associated with more than one service request, 8.8% (n = 1146) with more than three, and 2.7% (n = 344) with more than five. The median number of service requests is just one but the maximum number of service requests is 23.</p>
+<p>For addresses with large numbers of associated service requests, it is unclear whether each service request represents a separate basement sewage backup event or if some requests are simply repeated requests for a single persistent or unresolved sewage backup (and were not marked as “duplicate” requests). For example, 801 Showell Court in the Johnston Square neighborhood is associated with 14 service requests including requests on April 24 and 26, and June 26 and 27, 2018. The table below lists the ten property addresses with the largest number of requests.</p>
 </div>
-<div id="explore-request-data" class="section level2">
-<h2>Explore request data</h2>
+<div id="requests-over-by-month-quarter-and-year" class="section level3">
+<h3>Requests over by month, quarter, and year</h3>
+<p>In exploring the distribution of service requests by time and location, we looked at both the request count and the address count. A plot showing the number of requests per month is included in Appendix 2. A table showing the number of requests and addresses per quarter is included below. Totalling requests by year 2018 saw the greatest number—8.4% more than in 2017 and 20.2% more than in 2019. 2018 was also Baltimore’s wettest year on record with a total of 71.82 inches of rain throughout the year. Increased rainfall is consistent with expected changes due to a warming climate and a recent study by Blue Water Baltimore and the U.S. Geological Service.</p>
+<p><img src="analysis_files/figure-html/address_count_by_month_plot-1.png" style="display: block; margin: auto;" /></p>
+<p><img src="analysis_files/figure-html/request_count_by_month_plot-1.png" style="display: block; margin: auto;" /></p>
+<p><img src="analysis_files/figure-html/median_days_to_close_by_month_plot-1.png" style="display: block; margin: auto;" /></p>
+<p><img src="analysis_files/figure-html/request_count_by_year_facet_map-1.png" style="display: block; margin: auto;" /></p>
 </div>
-<div id="import-demographic-data" class="section level2">
-<h2>Import demographic data</h2>
+<div id="requests-by-neighborhood" class="section level3">
+<h3>Requests by neighborhood</h3>
+<p>A large share of the neighborhoods with the greatest number of service requests are located in northeast Baltimore within the Heritage Run and Outfall Wastewater System Service Areas. Belair-Edison, Frankford, and Glenham-Belhar all saw more than 300 service requests in this 26 month period. 14 out of 20 neighborhoods with more than 200 service requests were located in this same area. Backups in this area are due, at least in part, to a very large scale persistent sewage backup along the sewer interceptor flowing to the Back River Wastewater Treatment Plant.</p>
+<table>
+<caption>Neighborhoods with greatest number of addresses with basement sewage backup service requests from January 2017 to February 2020</caption>
+<thead>
+<tr class="header">
+<th align="right">Neighborhood</th>
+<th align="center">Requests</th>
+<th align="center">Addresses</th>
+<th align="center">Median days to close</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">Belair-Edison</td>
+<td align="center">642</td>
+<td align="center">452</td>
+<td align="center">2.0</td>
+</tr>
+<tr class="even">
+<td align="right">Frankford</td>
+<td align="center">515</td>
+<td align="center">340</td>
+<td align="center">2.7</td>
+</tr>
+<tr class="odd">
+<td align="right">Glen</td>
+<td align="center">324</td>
+<td align="center">231</td>
+<td align="center">1.6</td>
+</tr>
+<tr class="even">
+<td align="right">Howard Park</td>
+<td align="center">332</td>
+<td align="center">222</td>
+<td align="center">1.8</td>
+</tr>
+<tr class="odd">
+<td align="right">Loch Raven</td>
+<td align="center">279</td>
+<td align="center">202</td>
+<td align="center">2.9</td>
+</tr>
+<tr class="even">
+<td align="right">Hamilton Hills</td>
+<td align="center">300</td>
+<td align="center">199</td>
+<td align="center">2.0</td>
+</tr>
+<tr class="odd">
+<td align="right">Coldstream Homestead Montebello</td>
+<td align="center">281</td>
+<td align="center">197</td>
+<td align="center">2.0</td>
+</tr>
+<tr class="even">
+<td align="right">Idlewood</td>
+<td align="center">286</td>
+<td align="center">194</td>
+<td align="center">2.0</td>
+</tr>
+<tr class="odd">
+<td align="right">North Harford Road</td>
+<td align="center">273</td>
+<td align="center">188</td>
+<td align="center">2.1</td>
+</tr>
+<tr class="even">
+<td align="right">Glenham-Belhar</td>
+<td align="center">293</td>
+<td align="center">184</td>
+<td align="center">2.2</td>
+</tr>
+</tbody>
+</table>
+<p><img src="analysis_files/figure-html/neighborhood_table-1.png" style="display: block; margin: auto;" /></p>
+<table>
+<caption>Neighborhoods with greatest number of basement sewage backup service requests from January 2017 to February 2020</caption>
+<thead>
+<tr class="header">
+<th align="right">Neighborhood</th>
+<th align="center">Requests</th>
+<th align="center">Addresses</th>
+<th align="center">Median days to close</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">Belair-Edison</td>
+<td align="center">642</td>
+<td align="center">452</td>
+<td align="center">2.0</td>
+</tr>
+<tr class="even">
+<td align="right">Frankford</td>
+<td align="center">515</td>
+<td align="center">340</td>
+<td align="center">2.7</td>
+</tr>
+<tr class="odd">
+<td align="right">Howard Park</td>
+<td align="center">332</td>
+<td align="center">222</td>
+<td align="center">1.8</td>
+</tr>
+<tr class="even">
+<td align="right">Glen</td>
+<td align="center">324</td>
+<td align="center">231</td>
+<td align="center">1.6</td>
+</tr>
+<tr class="odd">
+<td align="right">Hamilton Hills</td>
+<td align="center">300</td>
+<td align="center">199</td>
+<td align="center">2.0</td>
+</tr>
+<tr class="even">
+<td align="right">Glenham-Belhar</td>
+<td align="center">293</td>
+<td align="center">184</td>
+<td align="center">2.2</td>
+</tr>
+<tr class="odd">
+<td align="right">Idlewood</td>
+<td align="center">286</td>
+<td align="center">194</td>
+<td align="center">2.0</td>
+</tr>
+<tr class="even">
+<td align="right">Coldstream Homestead Montebello</td>
+<td align="center">281</td>
+<td align="center">197</td>
+<td align="center">2.0</td>
+</tr>
+<tr class="odd">
+<td align="right">Loch Raven</td>
+<td align="center">279</td>
+<td align="center">202</td>
+<td align="center">2.9</td>
+</tr>
+<tr class="even">
+<td align="right">North Harford Road</td>
+<td align="center">273</td>
+<td align="center">188</td>
+<td align="center">2.1</td>
+</tr>
+</tbody>
+</table>
+<p><img src="analysis_files/figure-html/neigborhood_map-1.png" style="display: block; margin: auto;" /></p>
+<p>A second cluster is located in northwest Baltimore within the Gwynns Falls Wastewater System Service Area. Howard Park, Glen, Cross Country, and Ashburton all saw more than 200 service requests in the same period. These backups cannot be attributed to the same issue since the Gwynns Falls Service Area flows to the Patapsco treatment plant. Other neighborhoods with high levels of service requests beyond this northeast Baltimore cluster (but still within the Patapsco Service Area) are Beechfield in west Baltimore and Brooklyn in south Baltimore.</p>
+<p>In addition to clustering caused directly by physical issues within the wastewater treatment system, it is also possible that clustering may be partially due to greater awareness or willingness to report in some neighborhoods than others. Reports on successful litigation over basement backups, reports on the city’s reimbursement program, or ongoing advocacy by Blue Water Baltimore and other area organizations on the importance of reporting backups to 311 may contribute to greater awareness in some neighborhoods more than others.</p>
 </div>
-<div id="explore-request-and-demographic-data" class="section level2">
-<h2>Explore request and demographic data</h2>
+<div id="requests-by-tract" class="section level3">
+<h3>Requests by tract</h3>
+<p>Overall, the distribution of requests by tract show very similar patterns as the distribution of requests by neighborhood with the same clusters in northwest and northeast Baltimore. However, the primary purpose of aggregating requests by Census tract is to allow the comparison of different areas based on demographic characteristics. For these initial comparisons, we used the gtsummary R package that used paired t-tests to compare the tracts using the same selected variables we subsequently explored in the regression analysis.</p>
+<p><img src="analysis_files/figure-html/address_count_by_tract_map-1.png" style="display: block; margin: auto;" /></p>
+<p><img src="analysis_files/figure-html/request_count_by_tract_map-1.png" style="display: block; margin: auto;" /></p>
+<p><img src="analysis_files/figure-html/address_count_quartile_facet_map-1.png" style="display: block; margin: auto;" /></p>
+<p><img src="analysis_files/figure-html/request_count_quartile_facet_map-1.png" style="display: block; margin: auto;" /></p>
+<p>First, we looked at a comparison of the tracts in the highest quartile of requests (ranging from 130 to 402 per tract) to the bottom three quartiles (ranging from 1 to 127 requests per tract). A map of the quartiles is included in Appendix 1 and a table showing this comparison is included below. Overall, the 50 tracts in the top quartile are slightly older, have fewer families in poverty, more owners, and have a smaller share of structures built before 1940. 80% of these tracts are located in the middle income quartiles (ranging from ) with only 10% each in the lowest and highest income quartiles.</p>
+</div>
+<div id="requests-by-wastewater-treatment-plant-service-area" class="section level3">
+<h3>Requests by wastewater treatment plant service area</h3>
+<p><img src="analysis_files/figure-html/treatment_plant-1.png" style="display: block; margin: auto;" /></p>
+<style>html {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
+}
+
+#gkiduefoqc .gt_table {
+  display: table;
+  border-collapse: collapse;
+  margin-left: auto;
+  /* table.margin.left */
+  margin-right: auto;
+  /* table.margin.right */
+  color: #333333;
+  font-size: 16px;
+  /* table.font.size */
+  background-color: #FFFFFF;
+  /* table.background.color */
+  width: auto;
+  /* table.width */
+  border-top-style: solid;
+  /* table.border.top.style */
+  border-top-width: 2px;
+  /* table.border.top.width */
+  border-top-color: #A8A8A8;
+  /* table.border.top.color */
+  border-bottom-style: solid;
+  /* table.border.bottom.style */
+  border-bottom-width: 2px;
+  /* table.border.bottom.width */
+  border-bottom-color: #A8A8A8;
+  /* table.border.bottom.color */
+}
+
+#gkiduefoqc .gt_heading {
+  background-color: #FFFFFF;
+  /* heading.background.color */
+  border-bottom-color: #FFFFFF;
+  /* table.background.color */
+  border-left-style: hidden;
+  /* heading.border.lr.style */
+  border-left-width: 1px;
+  /* heading.border.lr.width */
+  border-left-color: #D3D3D3;
+  /* heading.border.lr.color */
+  border-right-style: hidden;
+  /* heading.border.lr.style */
+  border-right-width: 1px;
+  /* heading.border.lr.width */
+  border-right-color: #D3D3D3;
+  /* heading.border.lr.color */
+}
+
+#gkiduefoqc .gt_title {
+  color: #333333;
+  font-size: 125%;
+  /* heading.title.font.size */
+  font-weight: initial;
+  /* heading.title.font.weight */
+  padding-top: 4px;
+  /* heading.top.padding - not yet used */
+  padding-bottom: 4px;
+  border-bottom-color: #FFFFFF;
+  /* table.background.color */
+  border-bottom-width: 0;
+}
+
+#gkiduefoqc .gt_subtitle {
+  color: #333333;
+  font-size: 85%;
+  /* heading.subtitle.font.size */
+  font-weight: initial;
+  /* heading.subtitle.font.weight */
+  padding-top: 0;
+  padding-bottom: 4px;
+  /* heading.bottom.padding - not yet used */
+  border-top-color: #FFFFFF;
+  /* table.background.color */
+  border-top-width: 0;
+}
+
+#gkiduefoqc .gt_bottom_border {
+  border-bottom-style: solid;
+  /* heading.border.bottom.style */
+  border-bottom-width: 2px;
+  /* heading.border.bottom.width */
+  border-bottom-color: #D3D3D3;
+  /* heading.border.bottom.color */
+}
+
+#gkiduefoqc .gt_column_spanner {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+#gkiduefoqc .gt_col_headings {
+  border-top-style: solid;
+  /* column_labels.border.top.style */
+  border-top-width: 2px;
+  /* column_labels.border.top.width */
+  border-top-color: #D3D3D3;
+  /* column_labels.border.top.color */
+  border-bottom-style: solid;
+  /* column_labels.border.bottom.style */
+  border-bottom-width: 2px;
+  /* column_labels.border.bottom.width */
+  border-bottom-color: #D3D3D3;
+  /* column_labels.border.bottom.color */
+  border-left-style: none;
+  /* column_labels.border.lr.style */
+  border-left-width: 1px;
+  /* column_labels.border.lr.width */
+  border-left-color: #D3D3D3;
+  /* column_labels.border.lr.color */
+  border-right-style: none;
+  /* column_labels.border.lr.style */
+  border-right-width: 1px;
+  /* column_labels.border.lr.width */
+  border-right-color: #D3D3D3;
+  /* column_labels.border.lr.color */
+}
+
+#gkiduefoqc .gt_col_heading {
+  color: #333333;
+  background-color: #FFFFFF;
+  /* column_labels.background.color */
+  font-size: 100%;
+  /* column_labels.font.size */
+  font-weight: normal;
+  /* column_labels.font.weight */
+  text-transform: inherit;
+  /* column_labels.text_transform */
+  vertical-align: middle;
+  padding: 5px;
+  margin: 10px;
+  overflow-x: hidden;
+}
+
+#gkiduefoqc .gt_sep_right {
+  border-right: 5px solid #FFFFFF;
+}
+
+#gkiduefoqc .gt_group_heading {
+  padding: 8px;
+  /* row_group.padding */
+  color: #333333;
+  background-color: #FFFFFF;
+  /* row_group.background.color */
+  font-size: 100%;
+  /* row_group.font.size */
+  font-weight: initial;
+  /* row_group.font.weight */
+  text-transform: inherit;
+  /* row_group.text_transform */
+  border-top-style: solid;
+  /* row_group.border.top.style */
+  border-top-width: 2px;
+  /* row_group.border.top.width */
+  border-top-color: #D3D3D3;
+  /* row_group.border.top.color */
+  border-bottom-style: solid;
+  /* row_group.border.bottom.style */
+  border-bottom-width: 2px;
+  /* row_group.border.bottom.width */
+  border-bottom-color: #D3D3D3;
+  /* row_group.border.bottom.color */
+  border-left-style: none;
+  /* row_group.border.left.style */
+  border-left-width: 1px;
+  /* row_group.border.left.width */
+  border-left-color: #D3D3D3;
+  /* row_group.border.left.color */
+  border-right-style: none;
+  /* row_group.border.right.style */
+  border-right-width: 1px;
+  /* row_group.border.right.width */
+  border-right-color: #D3D3D3;
+  /* row_group.border.right.color */
+  vertical-align: middle;
+}
+
+#gkiduefoqc .gt_empty_group_heading {
+  padding: 0.5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  /* row_group.background.color */
+  font-size: 100%;
+  /* row_group.font.size */
+  font-weight: initial;
+  /* row_group.font.weight */
+  border-top-style: solid;
+  /* row_group.border.top.style */
+  border-top-width: 2px;
+  /* row_group.border.top.width */
+  border-top-color: #D3D3D3;
+  /* row_group.border.top.color */
+  border-bottom-style: solid;
+  /* row_group.border.bottom.style */
+  border-bottom-width: 2px;
+  /* row_group.border.bottom.width */
+  border-bottom-color: #D3D3D3;
+  /* row_group.border.bottom.color */
+  vertical-align: middle;
+}
+
+#gkiduefoqc .gt_striped {
+  background-color: rgba(128, 128, 128, 0.05);
+  /* row.striping.background_color */
+}
+
+#gkiduefoqc .gt_from_md > :first-child {
+  margin-top: 0;
+}
+
+#gkiduefoqc .gt_from_md > :last-child {
+  margin-bottom: 0;
+}
+
+#gkiduefoqc .gt_row {
+  padding-top: 8px;
+  /* data_row.padding */
+  padding-bottom: 8px;
+  /* data_row.padding */
+  padding-left: 5px;
+  padding-right: 5px;
+  margin: 10px;
+  border-top-style: solid;
+  /* table_body.hlines.style */
+  border-top-width: 1px;
+  /* table_body.hlines.width */
+  border-top-color: #D3D3D3;
+  /* table_body.hlines.color */
+  border-left-style: none;
+  /* table_body.vlines.style */
+  border-left-width: 1px;
+  /* table_body.vlines.width */
+  border-left-color: #D3D3D3;
+  /* table_body.vlines.color */
+  border-right-style: none;
+  /* table_body.vlines.style */
+  border-right-width: 1px;
+  /* table_body.vlines.width */
+  border-right-color: #D3D3D3;
+  /* table_body.vlines.color */
+  vertical-align: middle;
+  overflow-x: hidden;
+}
+
+#gkiduefoqc .gt_stub {
+  color: #333333;
+  background-color: #FFFFFF;
+  /* stub.background.color */
+  font-weight: initial;
+  /* stub.font.weight */
+  text-transform: inherit;
+  /* stub.text_transform */
+  border-right-style: solid;
+  /* stub.border.style */
+  border-right-width: 2px;
+  /* stub.border.width */
+  border-right-color: #D3D3D3;
+  /* stub.border.color */
+  padding-left: 12px;
+}
+
+#gkiduefoqc .gt_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  /* summary_row.background.color */
+  text-transform: inherit;
+  /* summary_row.text_transform */
+  padding-top: 8px;
+  /* summary_row.padding */
+  padding-bottom: 8px;
+  /* summary_row.padding */
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#gkiduefoqc .gt_first_summary_row {
+  padding-top: 8px;
+  /* summary_row.padding */
+  padding-bottom: 8px;
+  /* summary_row.padding */
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: solid;
+  /* summary_row.border.style */
+  border-top-width: 2px;
+  /* summary_row.border.width */
+  border-top-color: #D3D3D3;
+  /* summary_row.border.color */
+}
+
+#gkiduefoqc .gt_grand_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  /* grand_summary_row.background.color */
+  text-transform: inherit;
+  /* grand_summary_row.text_transform */
+  padding-top: 8px;
+  /* grand_summary_row.padding */
+  padding-bottom: 8px;
+  /* grand_summary_row.padding */
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#gkiduefoqc .gt_first_grand_summary_row {
+  padding-top: 8px;
+  /* grand_summary_row.padding */
+  padding-bottom: 8px;
+  /* grand_summary_row.padding */
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: double;
+  /* grand_summary_row.border.style */
+  border-top-width: 6px;
+  /* grand_summary_row.border.width */
+  border-top-color: #D3D3D3;
+  /* grand_summary_row.border.color */
+}
+
+#gkiduefoqc .gt_table_body {
+  border-top-style: solid;
+  /* table_body.border.top.style */
+  border-top-width: 2px;
+  /* table_body.border.top.width */
+  border-top-color: #D3D3D3;
+  /* table_body.border.top.color */
+  border-bottom-style: solid;
+  /* table_body.border.bottom.style */
+  border-bottom-width: 2px;
+  /* table_body.border.bottom.width */
+  border-bottom-color: #D3D3D3;
+  /* table_body.border.bottom.color */
+}
+
+#gkiduefoqc .gt_footnotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  /* footnotes.background.color */
+  border-bottom-style: none;
+  /* footnotes.border.bottom.style */
+  border-bottom-width: 2px;
+  /* footnotes.border.bottom.width */
+  border-bottom-color: #D3D3D3;
+  /* footnotes.border.bottom.color */
+  border-left-style: none;
+  /* footnotes.border.lr.color */
+  border-left-width: 2px;
+  /* footnotes.border.lr.color */
+  border-left-color: #D3D3D3;
+  /* footnotes.border.lr.color */
+  border-right-style: none;
+  /* footnotes.border.lr.color */
+  border-right-width: 2px;
+  /* footnotes.border.lr.color */
+  border-right-color: #D3D3D3;
+  /* footnotes.border.lr.color */
+}
+
+#gkiduefoqc .gt_footnote {
+  margin: 0px;
+  font-size: 90%;
+  /* footnotes.font.size */
+  padding: 4px;
+  /* footnotes.padding */
+}
+
+#gkiduefoqc .gt_sourcenotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  /* source_notes.background.color */
+  border-bottom-style: none;
+  /* source_notes.border.bottom.style */
+  border-bottom-width: 2px;
+  /* source_notes.border.bottom.width */
+  border-bottom-color: #D3D3D3;
+  /* source_notes.border.bottom.color */
+  border-left-style: none;
+  /* source_notes.border.lr.style */
+  border-left-width: 2px;
+  /* source_notes.border.lr.style */
+  border-left-color: #D3D3D3;
+  /* source_notes.border.lr.style */
+  border-right-style: none;
+  /* source_notes.border.lr.style */
+  border-right-width: 2px;
+  /* source_notes.border.lr.style */
+  border-right-color: #D3D3D3;
+  /* source_notes.border.lr.style */
+}
+
+#gkiduefoqc .gt_sourcenote {
+  font-size: 90%;
+  /* source_notes.font.size */
+  padding: 4px;
+  /* source_notes.padding */
+}
+
+#gkiduefoqc .gt_left {
+  text-align: left;
+}
+
+#gkiduefoqc .gt_center {
+  text-align: center;
+}
+
+#gkiduefoqc .gt_right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#gkiduefoqc .gt_font_normal {
+  font-weight: normal;
+}
+
+#gkiduefoqc .gt_font_bold {
+  font-weight: bold;
+}
+
+#gkiduefoqc .gt_font_italic {
+  font-style: italic;
+}
+
+#gkiduefoqc .gt_super {
+  font-size: 65%;
+}
+
+#gkiduefoqc .gt_footnote_marks {
+  font-style: italic;
+  font-size: 65%;
+}
+</style>
+<div id="gkiduefoqc" style="overflow-x:auto;overflow-y:auto;width:auto;height:auto;"><table class="gt_table">
+  
+  <thead class="gt_col_headings">
+    <tr>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1"><strong>Characteristic</strong></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"><strong>Back River</strong>, N = 168<sup class="gt_footnote_marks">1</sup></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"><strong>Patapsco</strong>, N = 32<sup class="gt_footnote_marks">1</sup></th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"><strong>p-value</strong><sup class="gt_footnote_marks">2</sup></th>
+    </tr>
+  </thead>
+  <tbody class="gt_table_body">
+    <tr>
+      <td class="gt_row gt_left" style="font-weight: bold;">Request count</td>
+      <td class="gt_row gt_center">65 (35, 113)</td>
+      <td class="gt_row gt_center">116 (68, 157)</td>
+      <td class="gt_row gt_center">0.005</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left gt_striped" style="font-weight: bold;">Address count</td>
+      <td class="gt_row gt_center gt_striped">44 (25, 77)</td>
+      <td class="gt_row gt_center gt_striped">75 (46, 113)</td>
+      <td class="gt_row gt_center gt_striped">0.005</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="font-weight: bold;">Median age (years)</td>
+      <td class="gt_row gt_center">35.5 (31.9, 40.0)</td>
+      <td class="gt_row gt_center">35.9 (33.3, 43.5)</td>
+      <td class="gt_row gt_center">0.2</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left gt_striped" style="font-weight: bold;">White population (%)</td>
+      <td class="gt_row gt_center gt_striped">24 (5, 60)</td>
+      <td class="gt_row gt_center gt_striped">6 (2, 21)</td>
+      <td class="gt_row gt_center gt_striped">0.002</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="font-weight: bold;">Black population(%)</td>
+      <td class="gt_row gt_center">70 (24, 92)</td>
+      <td class="gt_row gt_center">90 (76, 95)</td>
+      <td class="gt_row gt_center">0.002</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left gt_striped" style="font-weight: bold;">Families in poverty (%)</td>
+      <td class="gt_row gt_center gt_striped">15 (5, 28)</td>
+      <td class="gt_row gt_center gt_striped">18 (13, 23)</td>
+      <td class="gt_row gt_center gt_striped">0.2</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="font-weight: bold;">Owner occupied (%)</td>
+      <td class="gt_row gt_center">46 (33, 62)</td>
+      <td class="gt_row gt_center">48 (38, 59)</td>
+      <td class="gt_row gt_center">>0.9</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left gt_striped" style="font-weight: bold;">Built before 1940 (%)</td>
+      <td class="gt_row gt_center gt_striped">54 (32, 71)</td>
+      <td class="gt_row gt_center gt_striped">32 (17, 46)</td>
+      <td class="gt_row gt_center gt_striped"><0.001</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="font-weight: bold;">Median income (quartile)</td>
+      <td class="gt_row gt_center"></td>
+      <td class="gt_row gt_center"></td>
+      <td class="gt_row gt_center">0.005</td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left gt_striped" style="text-align: left; text-indent: 10px;">1</td>
+      <td class="gt_row gt_center gt_striped">40 (25%)</td>
+      <td class="gt_row gt_center gt_striped">8 (26%)</td>
+      <td class="gt_row gt_center gt_striped"></td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">2</td>
+      <td class="gt_row gt_center">34 (21%)</td>
+      <td class="gt_row gt_center">14 (45%)</td>
+      <td class="gt_row gt_center"></td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left gt_striped" style="text-align: left; text-indent: 10px;">3</td>
+      <td class="gt_row gt_center gt_striped">40 (25%)</td>
+      <td class="gt_row gt_center gt_striped">8 (26%)</td>
+      <td class="gt_row gt_center gt_striped"></td>
+    </tr>
+    <tr>
+      <td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">4</td>
+      <td class="gt_row gt_center">46 (29%)</td>
+      <td class="gt_row gt_center">1 (3.2%)</td>
+      <td class="gt_row gt_center"></td>
+    </tr>
+  </tbody>
+  
+  <tfoot>
+    <tr class="gt_footnotes">
+      <td colspan="4">
+        <p class="gt_footnote">
+          <sup class="gt_footnote_marks">
+            <em>1</em>
+          </sup>
+           
+          Statistics presented: median (IQR); n (%)
+          <br />
+        </p>
+        <p class="gt_footnote">
+          <sup class="gt_footnote_marks">
+            <em>2</em>
+          </sup>
+           
+          Statistical tests performed: Wilcoxon rank-sum test; chi-square test of independence
+          <br />
+        </p>
+      </td>
+    </tr>
+  </tfoot>
+</table></div>
+<p>Next, we looked at differences by wastewater treatment service area. Overall, the 32 tracts within the Patapsco service area saw a significantly higher median number of requests and those requests were associated with a larger number of addresses within each tract. The median age, share of families in poverty, owner occupancy share, were all the same but the tracts in the Patapsco had a larger median share of Black residents (90%) than the tracts in the Back River area (70%).</p>
+</div>
+<div id="requests-by-days-to-close" class="section level3">
+<h3>Requests by days to close</h3>
+<p>Open Baltimore’s public data on service requests’ days-to-close exhibited unusual properties. The days-to-close variable ranged from negative one second to 654 days. The data also indicate that often, many service requests would all be closed at the same time.</p>
+<p><img src="analysis_files/figure-html/tract_map_days_to_close-1.png" style="display: block; margin: auto;" /></p>
+</div>
 </div>
 <div id="regression-analysis" class="section level2">
 <h2>Regression analysis</h2>
+<p>Using Stata, we fit a negative binomial model of tracts’ service request rate on tract demographic variables including percent Black, percent owner-occupied, income by quartiles, median age, median rent, percent of houses built before 1949, and percent of families in poverty. We also stratified by year and fit this model for 2016, 2017, and 2018.</p>
 </div>
-</div>
-<div id="conclusion" class="section level1">
-<h1>Conclusion</h1>
 </div>
 
 
