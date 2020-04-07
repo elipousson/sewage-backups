@@ -1,14 +1,23 @@
 ---
 title: "About"
-author: "Eli Pousson"
+author:
+  - "Erin Burman"
+  - "Eli Pousson"
 date: "4/4/2020"
-output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Sewage Backups in Baltimore
+## About this analysis
 
+Erin Burman and Eli Pousson conducted this analysis for Blue Water Baltimore in February and March 2020 as part of the Johns Hopkins School of Public Health course, “Community-Driven Epidemiology and Environmental Justice,” taught by Dr. Christopher D. Heaney with teaching assistant Emma Moynihan.
 
+Special thanks to Taylor Smith-Hams and Alice Volpitta of Blue Water Baltimore and Craig Bettenhausen for their assistance in understanding the issue of basement sewage backups in Baltimore.
+
+## About basement sewage backups in Baltimore
+
+In 2019, basement sewer backups affected nearly 4,000 properties in Baltimore City. These backups are hazardous to health, difficult and expensive for residents to clean up, and may jeopardize home values. In this analysis, we investigate the association between neighborhood demographic factors and the frequency of reported basement sewage backups in Baltimore City.
+
+Our findings support prior research that found backups disproportionately impact majority-Black neighborhoods. In addition, we hypothesize that low-income neighborhoods will also have higher rates of basement backups, and that DPW’s response to backups in low-income, majority-Black communities will be slower.
