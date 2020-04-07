@@ -4,7 +4,6 @@ author:
 - "Erin Burman"  
 - "Eli Pousson"
 date: "4/4/2020"
-output: html_document
 bibliography: references.bib
 ---
 

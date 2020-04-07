@@ -1,28 +1,775 @@
 ---
 title: "Analysis of 311 Service Request Data for Basement Sewage Backups"
-author: "Eli Pousson"
+author:
+- "Erin Burman"
+- "Eli Pousson"
 date: "4/4/2020"
-output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(
+  warning = FALSE, # do not show warnings
+  message = FALSE, # do not show messages
+  echo = FALSE,  # do not show R code
+  results = "hide", # hide results by default
+  fig.retina = TRUE,
+  fig.width = 12,
+  fig.height = 8,
+  fig.align = "center"
+)
 ```
 
-# Summary
+```{r packages}
+library(tidyverse) # for data wrangling
+library(tidycensus) # for importing American Community Survey data
+library(RSocrata) # for importing data from Open Baltimore
+library(sf) # for working with spatial data
+library(lubridate) # for working with time/date 
+library(scales)
+library(gt) # for creating tables
+library(gtsummary) # for creating summary tables
+# library(tidylog)
+library(labelled) # for labelling variables and values
+```
 
-# Background
+# Methods
+
+## Data
+
+### 311 service requests
+
+Data on 311 calls about basement sewage backups from October 2010 through the present was imported from [Open Baltimore](https://data.baltimorecity.gov/) using the RSocrata package. These requests are a proxy for the actual occurrence of basement sewage backups but do have several limitations. The requests include backups attributed to a range of issues including issues within the property’s own plumbing. These latter backups are considered the responsibility of the property owner and are not eligible for the city’s reimbursement program. We also believe that backups may be under-reported by tenants under the assumption that tenants are more likely to report an issue to a landlord who may or may not report to 311. We also assume that property-owners who may be unfamiliar with the reimbursement program may not see the need to report a smaller scale sewage backup.
+
+
+```{r import_requests}
+# Create an account on Open Baltimore and get an API key to use RSocrata.
+# More information on the Socrata API: https://dev.socrata.com/docs/endpoints.html
+# The following is adapted from this post: https://mattherman.info/blog/point-in-poly/
+
+base <- "https://data.baltimorecity.gov/resource/"
+resource <- "9agw-sxsr" # 311 Customer Service Requests
+vars <- c("ServiceRequestNum", "CreatedDate", "SRStatus", "StatusDate", "LastActivity", "Outcome", "Address", "Neighborhood", "Longitude", "Latitude") # selected variables
+sr_type <- "WW-Sewer Water In Basement" # selected service reuqest type
+call <- paste0(base, resource, ".json", "?$select=", paste(vars, collapse = ", "), "&SRType=", sr_type)
+
+# Download data from Open Baltimore. API access token is saved via keyring package
+requests <- read.socrata(call, app_token = keyring::key_get("Open Baltimore")) %>%
+  as_tibble() %>%
+  janitor::clean_names() %>% # Clean variable names
+  mutate(
+    created_date = ymd_hms(created_date), # Convert variable classes where needed
+    status_date = ymd_hms(status_date),
+    longitude = as.numeric(longitude),
+    latitude = as.numeric(latitude),
+    year_created = year(created_date), # Add year
+    month_created = month(created_date), # Add month
+    year_qrt_created = quarter(created_date, with_year = TRUE), # Add a year/quarter
+    wday_created = wday(created_date),
+    days_to_closed = ifelse(sr_status == "Closed", int_length(interval(ymd_hms(created_date), ymd_hms(status_date))) / 86400, NA) # Add days to close column for all closed service requests
+  ) %>%
+  add_count(address, name = "requests_at_address")
+
+# Exclude duplicates and transferred requests
+requests_no_duplicates <- requests %>% filter(!(sr_status == "Open (Duplicate)" | sr_status == "Closed (Duplicate)" | sr_status == "Closed (Transferred)"))
+
+# Count the duplicate and transferred requests
+duplicate_transferred_count <- length(requests$service_request_num) - length(requests_no_duplicates$service_request_num)
+
+# Exclude requests missing latitude/longitude
+requests_no_missing_location <- requests_no_duplicates %>% filter(!(is.na(latitude) | is.na(longitude)))
+
+# Count the requests missing latitude/longitude
+missing_location_count <- length(requests_no_duplicates$service_request_num) - length(requests_no_missing_location$service_request_num)
+
+# Export requests missing latitude/longitude
+# requests_missing_location <- requests_no_duplicates %>% filter((is.na(latitude) | is.na(longitude))) %>% write_csv('data/requests_missing_location.csv')
+
+# Import manually geocoded requests
+requests_missing_location <- read_csv("data/requests_missing_location-geocoded.csv")
+
+# Filter requests with no location match and drop unused columns
+requests_missing_location_geocoded <- requests_missing_location %>%
+  filter(is_exact %in% c("Exact", "Non_Exact")) %>% # Include both exact and non-exact matches
+  mutate(
+    latitude = latitude_geo,
+    longitude = longitude_geo
+  ) %>%
+  select(-(address_geo:zipcode)) %>% # Drop unused columns from manual geocoding
+  select(-X1)
+
+# Recombine the manually geocoded requests with request data
+requests_no_missing_location <- requests_no_missing_location %>%
+  bind_rows(requests_missing_location_geocoded)
+
+# Set analysis period
+analysis_period <- interval(ymd("2017-01-01"), ymd("2020-03-01"))
+
+# Exclude requests outside the analysis period
+requests_analysis <- requests_no_missing_location %>% filter(created_date %within% analysis_period)
+
+out_of_period_count <- length(requests_no_missing_location$service_request_num) - length(requests_analysis$service_request_num)
+
+# Convert request data to an SF object
+requests_sf <- requests_analysis %>%
+  st_as_sf(
+    coords = c("longitude", "latitude"),
+    agr = "constant",
+    crs = (4269), # Matching the CRS of the tigris block group data
+    stringsAsFactors = FALSE,
+    remove = TRUE
+  ) %>%
+  st_transform(4269)
+
+# Data dictionary is hosted in a gist for convenience but located in this Google Sheet: https://docs.google.com/spreadsheets/d/1et72ck0dnsC5oVyz_3jA1Hf15UGhiT3xyL0I0-NtybM/edit?usp=sharing
+
+# Import data dictionary
+request_dict <- rio::import("https://gist.githubusercontent.com/elipousson/354eaa23856f74942b5478f775b454ce/raw/e6700a92c8234a29513b522c2e731d09c23a45e7/baltimore_311_data_dictionary_variables.csv", "csv")
+
+# Label cleaned request data
+var_label(requests_analysis) <- request_dict %>%
+  select(variable, label) %>%
+  codebook::dict_to_list()
+```
+
+The record for each request included columns for the service request number, request created date, status, status date, street address, latitude and longitude. The four types of request status included new, open, closed, open (duplicate), closed (duplicate), and closed (transferred). Our analysis excluded duplicate and transferred requests (n = 195) and any requests created either before or after the January 2017 to February 2020 analysis period (n = 18,994). We calculated the days to close for each request by finding the difference between the created date and status date for those requests with a closed status.
+
+A small number of requests (n = 68) had missing location information. By using the street address and the U.S. Census Bureau's Batch Geocoding service, we identified an exact match 72.1% (n = 49), a non-exact match for 14.7% (n = 10) and no match for 1.3% (n = 9) of these requests. Exact and non-exact matches were both included in a total set of requests with locations.
+
+```{r import_census_city_geography}
+# Import Baltimore census tract boundaries
+baltimore_tracts <- tigris::tracts(state = "MD", county = "Baltimore city", class = "sf") %>% janitor::clean_names("snake")
+
+# Combine tracts to create city boundary line
+baltimore_boundary <- st_boundary(st_union(baltimore_tracts))
+
+# Create bounding box from boundary line
+baltimore_bbox <- st_bbox(baltimore_boundary)
+
+# Import Baltimore neighborhood boundaries
+baltimore_neighborhoods <- st_read("data/baltimore-neighborhoods.shp") %>%
+  janitor::clean_names("snake") %>%
+  st_transform(4269) %>%
+  rename(neighborhood_label = label) %>%
+  select(neighborhood_label)
+```
+
+```{r import_wastewater_geography}
+# Import boundary line for the Back River Wastewater Treatment Service Area
+back_river_service_area <- st_read("data/back-river-wastewater-treatment-plant-service-area.geojson") %>%
+  st_transform(4269) # See maps on p. 87 and p. 119 for boundary of Back River Wastewater Treatment Service Area: http://www.baltimorecity.gov/sites/default/files/2006_CompW%26WWplan.pdf
+
+# Calculate tracts where more than 50% of the tract's area is located in the Back River Treatment Area
+back_river_tracts <- baltimore_tracts %>%
+  st_intersection(back_river_service_area) %>%
+  select(geoid, aland, awater) %>%
+  mutate(
+    area_check = format(as.numeric(st_area(.)), scientific = FALSE),
+    combined_area = (aland + awater),
+    area_diff_pct = format(as.numeric(area_check) / as.numeric(combined_area), scientific = FALSE)
+  ) %>%
+  filter(area_diff_pct > 0.5)
+
+# Categorize list of tracts by service area using the list of tracts are located in the Back River service area as a reference
+baltimore_tracts <- baltimore_tracts %>%
+  mutate(treatment_plant = if_else(geoid %in% back_river_tracts$geoid, "Back River", "Patapsco"))
+```
+
+```{r join_requests}
+# Match service requests to tracts
+requests_tracts <- requests_sf %>%
+  st_join(baltimore_tracts, join = st_within) %>%
+  st_drop_geometry()
+
+# Count unmatched requests (25 of the 90 unmatched requests are located in the city)
+no_tract_count <- sum(is.na(requests_tracts$geoid))
+requests_no_tract <- requests_tracts %>% filter(is.na(geoid))
+
+# Match service requests to neighborhoods
+requests_neighborhoods <- requests_sf %>%
+  st_join(baltimore_neighborhoods, join = st_within) %>%
+  st_drop_geometry()
+
+# Count unmatched requests (11 of 78 unmatched requests are located in the city)
+no_neighborhood_count <- sum(is.na(requests_neighborhoods$neighborhood_label))
+requests_no_neighborhood <- requests_neighborhoods %>% filter(is.na(neighborhood_label))
+```
+
+```{r summarize_requests}
+# Import dictionary for request summaries
+# request_summary_dict <- rio::import("https://gist.githubusercontent.com/elipousson/354eaa23856f74942b5478f775b454ce/raw/bb8439f0bd17eb05378f08fd12227308d0d8a212/baltimore_311_data_dictionary_variables_request_summary.csv", "csv")
+
+# Function to summarize request data by grouped geography and/or time interval
+summarize_requests <- function(df) {
+  df %>%
+    summarize(
+      request_count = n(),
+      address_count = length(unique(address)),
+      med_days_to_close = median(days_to_closed, na.rm = TRUE),
+      min_days_to_close = min(days_to_closed, na.rm = TRUE),
+      max_days_to_close = max(days_to_closed, na.rm = TRUE)
+    ) %>%
+    mutate(
+      address_quartile = ntile(address_count, 4), # Add quartile
+      request_quartile = ntile(request_count, 4)
+    )
+
+# Apply variable labels from summary dictionary
+# NOTE: This currently (2020-04-03) does not work since not all of the dataframes passed to the function have variables that match the summary dictionary
+# var_label(df) <- request_summary_dict %>%
+#  select(variable, label) %>%
+#  dict_to_list()
+
+}
+
+# Summarize by year and month
+summary_requests_annual <- requests_tracts %>%
+  group_by(year_created) %>%
+  summarize_requests()
+
+# Summarize by year and month
+summary_requests_monthly <- requests_tracts %>%
+  group_by(year_created, month_created) %>%
+  summarize_requests()
+
+# Summarize by tract and wastewater treatment service area
+summary_requests_tracts <- requests_tracts %>%
+  group_by(geoid) %>%
+  summarize_requests() %>%
+  filter(!is.na(geoid)) # Exclude requests with no matched tract from summary
+
+# Join tract summary with tract geometry
+summary_requests_tracts <- summary_requests_tracts %>%
+  full_join(baltimore_tracts, by = "geoid") %>%
+  mutate_at(vars(request_count:address_count), ~ replace(., is.na(.), 0)) %>% # Replace NA with 0 requests for any tracts w/ no requests
+  st_as_sf()
+
+# Summarize by tract and year
+summary_requests_tracts_annual <- requests_tracts %>%
+  group_by(geoid, year_created) %>%
+  summarize_requests()
+
+# Join tract and year summary with tract geometry
+summary_requests_tracts_annual <- summary_requests_tracts_annual %>%
+  full_join(baltimore_tracts, by = "geoid") %>%
+  mutate_at(vars(request_count:address_count), ~ replace(., is.na(.), 0)) %>%
+  st_as_sf()
+
+# Add summary columns by neighborhood
+summary_requests_neighborhoods <- requests_neighborhoods %>%
+  group_by(neighborhood_label) %>%
+  summarize_requests()
+
+# Join neighborhood summary with neighborhood geometry
+summary_requests_neighborhoods <- summary_requests_neighborhoods %>%
+  full_join(baltimore_neighborhoods, by = "neighborhood_label") %>%
+  mutate_at(vars(request_count:address_count), ~ replace(., is.na(.), 0)) %>%
+  st_as_sf()
+```
+
+We then matched the remaining 21,804 requests to the census tract and a neighborhood using the sf R package. Census tract boundaries were imported using the tigris R package and shapefiles with the Baltimore neighborhood boundaries were downloaded from Open Baltimore. Requests included at least one request in 269 of 279 Baltimore neighborhoods (96.4%) and all 200 Census tracts.
+
+104 requests could not be matched to a Census tract. These included 90.4% (n = 94) located outside the city and 9.6% (n = 10) requests with locations issues that placed them outside the boundaries of any tract in Baltimore City. These requests are included in the analysis of frequency of service requests over time but are excluded from the subsequent regression analysis.
+
+92 requests could not be matched to a neighborhood. These included approximately 85.9% (n = 79) located outside the city and 14.1% (n = 13) with location issues that placed them outside the boundaries of any neighborhood in Baltimore City.
+
+We also also matched each tract to a wastewater treatment plant by checking whether tracts were located inside or outside of the service area for the Back River Wastewater Treatment Plant. We traced the boundaries of the service area using a 2004 map (published in the City of Baltimore 2006 Comprehensive Water and Wastewater Treatment Plan) that had been [georectified using the Map Warper web service](http://mapwarper.net/maps/46308). For any tracts that crossed the boundary between the Back River and Patapsco service area, we matched the tract to the service area that contained a majority of the area of the tract.
+
+When we matched requests to tracts and neighborhoods, we counted the total number of requests and unique addresses for each tract. We also determined the median days to close for each tract. We calculated these aggregate counts for the total period of the analysis and for each full year (2017, 2018, 2019) for use in a sensitivity analysis.
+
+### Demographic and socioeconomic data for Census tracts
+
+Tract-level data on demographic and socioeconomic characteristics were taken from the Census Bureau’s American Community Survey (ACS) 2014-2018 5-year estimates (using the tidycensus R package to import the data). Selected variables for this analysis included:
+
+- Median age (years)
+- Median household income ($)
+- Total population (count)
+- Black population (% of total population)
+- Structures built before 1950 (% of total structures)
+- Owner-occupied households (% of total households)
+
+```{r acs_data_vars}
+# Load a list of available ACS variables
+# v18 <- load_variables(2018, "acs5", cache = TRUE)
+# View(v18)
+
+# Many of these variables are only available at the tract level
+acs_vars <- c(
+  total_pop = "B01003_001", # Also used as a summary variable in long format
+  white_pop = "B02001_002",
+  black_pop = "B02001_003",
+  hispanic_total_pop = "B03002_012",
+  median_age = "B01002_001",
+  household_total = "B11001_001",
+  families_total = "B17010_001",
+  families_below_poverty = "B17010_002",
+  median_monthly_housing_costs = "B25105_001",
+  total_housing_units = "B25106_001",
+  owner_occupied_housing_units = "B25106_002",
+  renter_occupied_housing_units = "B25106_024",
+  median_household_income = "B25099_001",
+  median_household_income_w_mortgage = "B25099_002",
+  median_household_income_wo_mortgage = "B25099_003",
+  median_gross_rent = "B25064_001", # Total (dollars)
+  median_monthly_owner_cost = "B25088_001",
+  median_monthly_owner_cost_pct = "B25092_001",
+  built_total = "B25034_001",
+  built_1949to1940 = "B25034_010",
+  built_1939earlier = "B25034_011"
+)
+```
+
+```{r acs_data_import}
+acs_tract <- get_acs(
+  geography = "tract",
+  variables = acs_vars,
+  state = "MD", county = "Baltimore city", # geometry = TRUE,
+  summary_var = "B01003_001", # Total population
+  year = 2018
+) %>% janitor::clean_names('snake')
+
+# Switch from a long to wide format (drops margin of error)
+acs_tract_wide <- acs_tract %>% pivot_wider(id_cols = "geoid", names_from = "variable", values_from = "estimate")
+
+# baltco_acs_tract <- get_acs(
+#  geography = "tract",
+#  variables = acs_vars,
+#  state = "MD", county = "Baltimore County", # geometry = TRUE,
+#  summary_var = "B01003_001", # Total population
+#  year = 2018
+# )
+# baltco_acs_tract_wide <- baltco_acs_tract %>% pivot_wider(id_cols = "geoid", names_from = "variable", values_from = "estimate")
+```
+
+```{r mutate_acs_data}
+# Convert count variables into percentages where appropriate
+acs_tract_wide <- acs_tract_wide %>%
+  janitor::clean_names(case = "snake") %>%
+  mutate(
+    pct_white = white_pop / total_pop,
+    pct_hisp = hispanic_total_pop / total_pop,
+    pct_black_pop = black_pop / total_pop,
+    pct_family_poverty = families_below_poverty / families_total,
+    pct_owner_occupied = owner_occupied_housing_units / total_housing_units,
+    pct_renter_occupied = renter_occupied_housing_units / total_housing_units,
+    pct_built_1949earlier = (built_1949to1940 + built_1939earlier) / built_total,
+    pct_built_1939earlier = built_1939earlier / built_total
+  )
+
+
+# Add quartile rankings for median income, percent family poverty, and monthly owner costs as a percent of income
+acs_tract_wide <- acs_tract_wide %>%
+  mutate(
+    quartile_median_household_income = ntile(median_household_income, 4),
+    quartile_pct_black_pop = ntile(pct_black_pop, 4),
+    quartile_pct_family_poverty = ntile(pct_family_poverty, 4),
+    quartile_monthly_owner_cost_pct = ntile(median_monthly_owner_cost_pct, 4)
+  )
+```
+
+```{r join_requests_acs}
+# Joining the 311 requests with the ACS data
+acs_summary_requests_tracts <- summary_requests_tracts %>%
+  full_join(acs_tract_wide, by = "geoid") %>%
+  mutate(
+    request_rate_personyears = request_count / (total_pop * 365), # request rate per person years
+    address_rate_personyears = address_count / (total_pop * 365)
+  )
+
+acs_summary_requests_tracts_annual <- summary_requests_tracts_annual %>%
+  full_join(acs_tract_wide, by = "geoid") %>%
+  mutate(
+    request_rate_personyears = request_count / (total_pop * 365), # request rate per person years
+    address_rate_personyears = request_count / (total_pop * 365)
+  )
+
+acs_requests_tracts <- requests_tracts %>%
+  full_join(acs_tract_wide, by = "geoid")
+
+# acs_summary_requests_tracts %>% write_csv('acs_summary_requests_tracts.csv')
+# acs_summary_requests_tracts_annual %>% write_csv('acs_requests_tracts_annual.csv')
+# acs_requests_tracts %>% write_csv('acs_requests_tracts.csv')
+```
+
+The share of structures built before 1950 is a combination of the variables for structures built before 1939 and structures built between 1940 and 1949 divided by the total number of structures. The other percent variables are calculated as a share of the summary variable for the corresponding ACS table. The median household income was used to generate a quartile with the lowest median income group (\$19,375 to $48,092) using as the reference group in the regression analysis.
 
 # Analysis
 
-## Import request data
+## Exploratory Analysis
 
-## Explore request data
+Using R, we conducted an exploratory analysis to plot the frequency of 311 service requests for basement sewage back-ups looking at request counts by address, over time (by month, quarter, and year), and over neighborhoods, tracts, and wastewater service areas.
 
-## Import demographic data
+### Address and request counts
 
-## Explore request and demographic data
+There are 12,967 distinct addresses associated with service requests in this period. 37.7% of these addresses (n = 4,887) are associated with more than one service request, 8.8% (n = 1146) with more than three, and 2.7% (n = 344) with more than five. The median number of service requests is just one but the maximum number of service requests is 23.
+
+For addresses with large numbers of associated service requests, it is unclear whether each service request represents a separate basement sewage backup event or if some requests are simply repeated requests for a single persistent or unresolved sewage backup (and were not marked as “duplicate” requests). For example, 801 Showell Court in the Johnston Square neighborhood is associated with 14 service requests including requests on April 24 and 26, and June 26 and 27, 2018. The table below lists the ten property addresses with the largest number of requests.
+
+### Requests over by month, quarter, and year
+
+In exploring the distribution of service requests by time and location, we looked at both the request count and the address count. A plot showing the number of requests per month is included in Appendix 2. A table showing the number of requests and addresses per quarter is included below. Totalling requests by year 2018 saw the greatest number—8.4% more than in 2017 and 20.2% more than in 2019. 2018 was also Baltimore's wettest year on record with a total of 71.82 inches of rain throughout the year. Increased rainfall is consistent with expected changes due to a warming climate and a recent study by Blue Water Baltimore and the U.S. Geological Service.
+
+```{r request_by_year_table}
+summary_requests_annual %>%
+  select(year_created, request_count, address_count) %>%
+  gt() %>%
+  tab_header(
+    title = "Basement sewage backup service requests by year"
+  ) %>%
+  cols_label(
+    year_created = "Year",
+    request_count = "Requests",
+    address_count = "Addresses"
+  ) %>%
+  tab_footnote(
+    footnote = "2020 data includes January and February only",
+    locations = cells_column_labels(columns = vars(year_created))
+  )
+```
+
+```{r request_by_year_qrt_table}
+requests_analysis %>%
+  group_by(year_qrt_created) %>%
+  summarize(
+    request_count = n(),
+    address_count = length(unique(address))
+  ) %>%
+  select(year_qrt_created, request_count, address_count) %>%
+  arrange(year_qrt_created) %>%
+  gt() %>%
+  tab_header(
+    title = "Basement sewage backup service requests and addresses by quarter"
+  ) %>%
+  cols_label(
+    year_qrt_created = "Quarter",
+    request_count = "Requests",
+    address_count = "Addresses"
+  ) %>%
+  tab_footnote(
+    footnote = "2020.1 (Q1) includes January and February only",
+    locations = cells_column_labels(columns = vars(year_qrt_created))
+  )
+```
+
+```{r address_count_by_month_plot}
+plot_title <- "Addresses with 311 service requests for\nbasement sewage backups by month"
+plot_subtitle <- "January 2017 to February 2020"
+plot_caption <- "Source: Open Baltimore"
+plot_xlab <- "Month"
+plot_ylab <- "Addresses"
+
+address_count_by_month <- summary_requests_monthly %>%
+  ggplot(aes(ymd(paste0(year_created, "-", month_created, "-01")), address_count, group = 1)) +
+  geom_point(color = "#110B2D") + geom_line(color = "#110B2D") +
+  geom_smooth(color = "#B02363", fill = "#FBA368", method = "loess")
+
+address_count_by_month + labs(x = plot_xlab, y = plot_ylab, title = plot_title, subtitle = plot_subtitle, caption = plot_caption) + hrbrthemes::theme_ipsum_rc()
+```
+
+```{r request_count_by_month_plot}
+plot_title <- "Total 311 service requests for\nbasement sewage backups by month"
+plot_ylab <- "Requests"
+
+request_count_by_month <- summary_requests_monthly %>%
+  ggplot(aes(ymd(paste0(year_created, "-", month_created, "-01")), request_count, group = 1)) +
+  geom_point(color = "#110B2D") + geom_line(color = "#110B2D") +
+  geom_smooth(color = "#B02363", fill = "#FBA368", method = "loess")
+
+request_count_by_month + labs(x = plot_xlab, y = plot_ylab, title = plot_title, subtitle = plot_subtitle, caption = plot_caption) + hrbrthemes::theme_ipsum_rc()
+```
+
+```{r median_days_to_close_by_month_plot}
+plot_title <- "Median days to close 311 requests for\nbasement sewage backups by month"
+plot_ylab <- "Median days to close"
+
+median_days_to_close_by_month <- summary_requests_monthly %>%
+  ggplot(aes(ymd(paste0(year_created, "-", month_created, "-01")), med_days_to_close, group = 1)) +
+  geom_point(color = "#110B2D") + geom_line(color = "#110B2D") +
+  geom_smooth(color = "#B02363", fill = "#FBA368", method = "loess")
+
+median_days_to_close_by_month + labs(x = plot_xlab, y = plot_ylab, title = plot_title, subtitle = plot_subtitle, caption = plot_caption) + hrbrthemes::theme_ipsum_rc()
+```
+
+```{r request_count_by_year_facet_map, fig.width = 6.4, fig.height = 7.2}
+map_title <- "311 service requests for\nbasement sewage backups by tract"
+map_subtitle <- "Total by year from 2017 to 2019"
+map_fill <- "Number of requests"
+map_caption <- "Source: Open Baltimore"
+
+request_count_by_year <- summary_requests_tracts_annual %>%
+  filter(!is.na(geoid) & request_count != 0 & year_created < 2020) %>%
+  ggplot(aes(fill = request_count, color = request_count)) +
+  geom_sf() +
+  coord_sf(crs = 4269) +
+  scale_fill_viridis_c(option = "magma", direction = -1) +
+  scale_color_viridis_c(option = "magma", direction = -1) +
+  facet_wrap(~year_created) +
+  geom_sf(data = baltimore_boundary, color = "gray", fill = NA)
+
+request_count_by_year + theme_void() + guides(color = FALSE) +
+  labs(title = map_title, subtitle = map_subtitle, fill = map_fill, caption = map_caption) + hrbrthemes::theme_ipsum_rc() +
+  theme(
+    panel.grid.major = element_line(color = "transparent"),
+    axis.title = element_text(color = "transparent"),
+    axis.text = element_text(color = "transparent")
+  )
+```
+
+### Requests by neighborhood
+
+A large share of the neighborhoods with the greatest number of service requests are located in northeast Baltimore within the Heritage Run and Outfall Wastewater System Service Areas. Belair-Edison, Frankford, and Glenham-Belhar all saw more than 300 service requests in this 26 month period. 14 out of 20 neighborhoods with more than 200 service requests were located in this same area. Backups in this area are due, at least in part, to a very large scale persistent sewage backup along the sewer interceptor flowing to the Back River Wastewater Treatment Plant.
+
+```{r neighborhood_table, results = "show"}
+# TODO: Rework this table
+
+knitr::kable(
+  as_tibble(summary_requests_neighborhoods) %>%
+    dplyr::select(1:4) %>%
+    top_n(10, address_count) %>%
+    arrange(desc(address_count)),
+  col.names = c("Neighborhood", "Requests", "Addresses", "Median days to close"), align = "rccc", digits = 1, caption = "Neighborhoods with greatest number of addresses with basement sewage backup service requests from January 2017 to February 2020"
+)
+
+northeast_detail_map <- summary_requests_neighborhoods %>%
+  filter(request_count > 200) %>%
+  ggplot() +
+  geom_sf(aes(fill = request_count), alpha = 0.4) +
+  coord_sf(crs = 4269) +
+  guides(color = FALSE) +
+  ggsflabel::geom_sf_label_repel(aes(label = neighborhood_label, nudge_x = 5)) +
+  geom_sf(data = baltimore_boundary, color = "gray", fill = NA)
+
+northeast_detail_map
+
+knitr::kable(
+  as_tibble(summary_requests_neighborhoods) %>%
+    dplyr::select(1:4) %>%
+    top_n(10, request_count) %>%
+    arrange(desc(request_count)),
+  col.names = c("Neighborhood", "Requests", "Addresses", "Median days to close"), align = "rccc", digits = 1, caption = "Neighborhoods with greatest number of basement sewage backup service requests from January 2017 to February 2020"
+)
+```
+
+```{r neigborhood_map, fig.width = 6, fig.height = 6.75}
+summary_requests_neighborhoods %>%
+  filter(!is.na(neighborhood_label)) %>%
+  ggplot(aes(fill = address_count, color = address_count)) +
+  geom_sf() +
+  coord_sf(crs = 4269) +
+  scale_fill_viridis_c(option = "magma", direction = -1) +
+  scale_color_viridis_c(option = "magma", direction = -1) +
+  guides(color = FALSE) +
+  theme_void() +
+  theme(panel.grid.major = element_line(colour = "transparent")) +
+  labs(
+    title = "Addresses reporting basement \nsewage backups to 311 by neighborhood",
+    subtitle = "Total from January 2017 to February 2020",
+    fill = "Number of addresses",
+    caption = "Source: Open Baltimore"
+  ) +
+  hrbrthemes::theme_ipsum_rc() +
+  theme(
+    axis.title = element_text(color = "transparent"),
+    axis.text = element_text(color = "transparent")
+  )
+```
+
+A second cluster is located in northwest Baltimore within the Gwynns Falls Wastewater System Service Area. Howard Park, Glen, Cross Country, and Ashburton all saw more than 200 service requests in the same period. These backups cannot be attributed to the same issue since the Gwynns Falls Service Area flows to the Patapsco treatment plant. Other neighborhoods with high levels of service requests beyond this northeast Baltimore cluster (but still within the Patapsco Service Area) are Beechfield in west Baltimore and Brooklyn in south Baltimore.
+
+In addition to clustering caused directly by physical issues within the wastewater treatment system, it is also possible that clustering may be partially due to greater awareness or willingness to report in some neighborhoods than others. Reports on successful litigation over basement backups, reports on the city’s reimbursement program, or ongoing advocacy by Blue Water Baltimore and other area organizations on the importance of reporting backups to 311 may contribute to greater awareness in some neighborhoods more than others.
+
+### Requests by tract
+
+Overall, the distribution of requests by tract show very similar patterns as the distribution of requests by neighborhood with the same clusters in northwest and northeast Baltimore. However, the primary purpose of aggregating requests by Census tract is to allow the comparison of different areas based on demographic characteristics. For these initial comparisons, we used the gtsummary R package that used paired t-tests to compare the tracts using the same selected variables we subsequently explored in the regression analysis.
+
+```{r address_count_by_tract_map, fig.width = 6.4, fig.height = 7.2}
+map_title <- "Addresses with 311 service requests for \nbasement sewage backups by tract"
+map_subtitle <- "Total from January 2017 to February 2020"
+map_fill <- "Number of addresses"
+map_caption <- "Source: Open Baltimore"
+
+address_count_by_tract <- summary_requests_tracts %>%
+  ggplot(aes(fill = address_count, color = address_count)) +
+  geom_sf() +
+  coord_sf(crs = 4269) +
+  scale_fill_viridis_c(option = "magma", direction = -1) +
+  scale_color_viridis_c(option = "magma", direction = -1) +
+  guides(color = FALSE) +
+  theme_void()
+
+address_count_by_tract + labs(title = map_title, subtitle = map_subtitle, fill = map_fill, caption = map_caption) + hrbrthemes::theme_ipsum_rc() +
+  theme(
+    axis.title = element_text(color = "transparent"),
+    axis.text = element_text(color = "transparent")
+  )
+```
+
+```{r request_count_by_tract_map, fig.width = 6.4, fig.height = 7.2}
+map_title <- "311 service requests for \nbasement sewage backups by tract"
+map_subtitle <- "Total from January 2017 to February 2020"
+map_fill <- "Number of requests"
+
+request_count_by_tract <- summary_requests_tracts %>%
+  filter(!is.na(geoid)) %>% # Exclude requests with no assigned tract
+  ggplot(aes(fill = request_count, color = request_count)) +
+  geom_sf() +
+  coord_sf(crs = 4269) +
+  scale_fill_viridis_c(option = "magma", direction = -1) +
+  scale_color_viridis_c(option = "magma", direction = -1) +
+  guides(color = FALSE) +
+  theme_void()
+
+request_count_by_tract + labs(title = map_title, subtitle = map_subtitle, fill = map_fill, caption = map_caption) + hrbrthemes::theme_ipsum_rc() +
+  theme(
+    axis.title = element_text(color = "transparent"),
+    axis.text = element_text(color = "transparent")
+  )
+```
+
+```{r address_count_quartile_facet_map, fig.width = 6.4, fig.height = 7.2}
+map_title <- "Addresses with 311 service requests for\nbasement sewage backups by tract"
+map_subtitle <- "Quartiles of address count (Total from January 2017 to February 2020)"
+map_fill <- "Number of addresses"
+
+address_quartile_label_lookup <- c(
+  "1" = "1 to 25 addresses",
+  "2" = "26 to 47 addresses",
+  "3" = "48 to 82 addresses",
+  "4" = "83 to 280 addresses"
+)
+
+address_count_quartile_facet_map <- summary_requests_tracts %>%
+  filter(!is.na(geoid) & address_count != 0) %>% # Exclude requests with no assigned tract
+  ggplot(aes(fill = address_count, color = address_count)) +
+  geom_sf() +
+  coord_sf(crs = 4269) +
+  scale_fill_viridis_c(option = "magma", direction = -1) +
+  scale_color_viridis_c(option = "magma", direction = -1) +
+  facet_wrap(~address_quartile,
+    labeller = labeller(address_quartile = address_quartile_label_lookup)
+  ) +
+  geom_sf(data = baltimore_tracts, color = "lightgray", fill = NA) +
+  geom_sf(data = baltimore_boundary, color = "gray", fill = NA)
+
+address_count_quartile_facet_map + theme_void() + guides(color = FALSE) +
+  labs(title = map_title, subtitle = map_subtitle, fill = map_fill, caption = map_caption) + hrbrthemes::theme_ipsum_rc() +
+  theme(
+    panel.grid.major = element_line(color = "transparent"),
+    axis.title = element_text(color = "transparent"),
+    axis.text = element_text(color = "transparent")
+  )
+```
+
+```{r request_count_quartile_facet_map, fig.width = 6.4, fig.height = 7.2}
+map_title <- "311 service requests for\nbasement sewage backups by tract"
+map_subtitle <- "Quartiles of request count (Total from January 2017 to February 2020)"
+map_fill <- "Number of requests"
+
+request_quartile_label_lookup <- c(
+  "1" = "1 to 37 requests",
+  "2" = "37 to 74 requests",
+  "3" = "74 to 127 requests",
+  "4" = "130 to 402 requests"
+)
+
+request_count_quartile_facet_map <- summary_requests_tracts %>%
+  filter(!is.na(geoid) & request_count != 0) %>% # Exclude requests with no assigned tract
+  ggplot(aes(fill = request_count, color = request_count)) +
+  geom_sf() +
+  coord_sf(crs = 4269) +
+  scale_fill_viridis_c(option = "magma", direction = -1) +
+  scale_color_viridis_c(option = "magma", direction = -1) +
+  facet_wrap(~request_quartile,
+    labeller = labeller(request_quartile = request_quartile_label_lookup)
+  ) +
+  geom_sf(data = baltimore_tracts, color = "lightgray", fill = NA) +
+  geom_sf(data = baltimore_boundary, color = "gray", fill = NA)
+
+request_count_quartile_facet_map + theme_void() + guides(color = FALSE) +
+  labs(title = map_title, subtitle = map_subtitle, fill = map_fill, caption = map_caption) + hrbrthemes::theme_ipsum_rc() +
+  theme(
+    panel.grid.major = element_line(color = "transparent"),
+    axis.title = element_text(color = "transparent"),
+    axis.text = element_text(color = "transparent")
+  )
+```
+
+
+First, we looked at a comparison of the tracts in the highest quartile of requests (ranging from 130 to 402 per tract) to the bottom three quartiles (ranging from 1 to 127 requests per tract). A map of the quartiles is included in Appendix 1 and a table showing this comparison is included below. Overall, the 50 tracts in the top quartile are slightly older, have fewer families in poverty, more owners, and have a smaller share of structures built before 1940. 80% of these tracts are located in the middle income quartiles (ranging from ) with only 10% each in the lowest and highest income quartiles.
+
+### Requests by wastewater treatment plant service area
+
+```{r treatment_plant, fig.width = 6, fig.height = 6.75}
+map_title <- "Tracts matched to Back River and\nPatapsco Wastewater Treatment Plants"
+map_fill <- "Treatment plant"
+map_caption <- "Source: Service area boundaries based on\nCity of Baltimore, Back River & Patapsco System Map, 2004."
+
+treatment_plant_map <- summary_requests_tracts %>%
+  ggplot(aes(fill = treatment_plant, color = treatment_plant)) +
+  geom_sf() +
+  coord_sf(crs = 4269) +
+  scale_fill_viridis_d(option = "magma", direction = -1, begin = 0.4, end = 0.8) +
+  scale_color_viridis_d(option = "magma", direction = -1, begin = 0.4, end = 0.8) +
+  guides(color = FALSE) +
+  geom_sf(data = baltimore_tracts, color = "lightgray", fill = NA, size = 0.5) +
+  geom_sf(data = st_crop(back_river_service_area, baltimore_bbox), color = "#FCFFB2", fill = NA, size = 1.5)
+
+treatment_plant_map + theme_void() + guides(color = FALSE) + labs(title = map_title, fill = map_fill, caption = map_caption) + hrbrthemes::theme_ipsum_rc() + theme(panel.grid.major = element_line(color = "transparent"), axis.title = element_text(color = "transparent"), axis.text = element_text(color = "transparent"))
+```
+
+```{r treatment_plant_service_area_table, results = 'show'}
+treatment_plant_service_area_table <- acs_summary_requests_tracts %>%
+  st_drop_geometry() %>%
+  dplyr::select(treatment_plant, request_count, address_count, median_age, pct_white, pct_black_pop, pct_family_poverty, pct_owner_occupied, pct_built_1939earlier, quartile_median_household_income) %>%
+  mutate_at(vars(starts_with("pct")), funs(. * 100)) %>%
+  tbl_summary(
+    by = treatment_plant, # split table by treatment plant
+    missing = "no", # don't list missing data separately
+    label = list(
+      request_count ~ "Request count",
+      address_count ~ "Address count",
+      median_age ~ "Median age (years)",
+      pct_white ~ "White population (%)",
+      pct_black_pop ~ "Black population(%)",
+      pct_family_poverty ~ "Families in poverty (%)",
+      pct_owner_occupied ~ "Owner occupied (%)",
+      pct_built_1939earlier ~ "Built before 1940 (%)",
+      quartile_median_household_income ~ "Median income (quartile)"
+    )
+  ) %>%
+  add_p() %>%
+  bold_labels()
+
+treatment_plant_service_area_table
+```
+
+Next, we looked at differences by wastewater treatment service area. Overall, the 32 tracts within the Patapsco service area saw a significantly higher median number of requests and those requests were associated with a larger number of addresses within each tract. The median age, share of families in poverty, owner occupancy share, were all the same but the tracts in the Patapsco had a larger median share of Black residents (90%) than the tracts in the Back River area (70%).
+
+### Requests by days to close
+
+Open Baltimore’s public data on service requests’ days-to-close exhibited unusual properties. The days-to-close variable ranged from negative one second to 654 days. The data also indicate that often, many service requests would all be closed at the same time.
+
+```{r tract_map_days_to_close, fig.width = 6.4, fig.height = 7.2}
+# Median days to close
+summary_requests_tracts %>%
+  filter(!is.na(geoid)) %>%
+  filter(med_days_to_close < 15) %>% # Remove outlying value for median days to close
+  ggplot(aes(fill = med_days_to_close, color = med_days_to_close)) +
+  geom_sf() +
+  coord_sf(crs = 4269) +
+  scale_fill_viridis_c(option = "magma", direction = -1) +
+  scale_color_viridis_c(option = "magma", direction = -1) +
+  guides(color = FALSE) +
+  theme_void() +
+  theme(panel.grid.major = element_line(colour = "transparent")) +
+  labs(
+    title = "Median days to close a 311 request basement sewage backups\n to 311 by tract",
+    subtitle = "January 2017 to February 2020 (Excludes tracts with median days to close greater than two weeks)",
+    fill = "Days to close",
+    caption = "Source: Open Baltimore"
+  ) +
+  hrbrthemes::theme_ipsum_rc()
+```
 
 ## Regression analysis
 
-# Conclusion
+Using Stata, we fit a negative binomial model of tracts’ service request rate on tract demographic variables including percent Black, percent owner-occupied, income by quartiles, median age, median rent, percent of houses built before 1949, and percent of families in poverty. We also stratified by year and fit this model for 2016, 2017, and 2018.
