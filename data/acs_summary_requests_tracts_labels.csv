@@ -1,0 +1,57 @@
+variable,label
+geoid,Census tract
+request_count,Requests
+address_count,Addresses
+med_days_to_close,Median days to close
+min_days_to_close,Minimum days to close
+max_days_to_close,Maximum days to close
+address_quartile,Quartile by number of addresses
+request_quartile,Quartile by number of requests
+statefp,State ID
+countyfp,County ID
+tractce,Tract ID
+name,Tract name
+namelsad,namelsad
+mtfcc,mtfcc
+funcstat,funcstat
+aland,Land area
+awater,Water area
+intptlat,Int lat
+intptlon,In lon
+geometry,Geometry
+treatment_plant,Wastewater treatment plant
+median_age,Median age
+total_pop,Total population
+white_pop,White population
+black_pop,Black population
+hispanic_total_pop,Hispanic population
+household_total,Total housholds
+families_total,Total families
+families_below_poverty,Families below the federal poverty level
+built_total,Total structures
+built_1949to1940,Structures built 1940 to 1949
+built_1939earlier,Structures built 1939 or earlier
+median_gross_rent,Median gross rent
+median_monthly_owner_cost,Median monthly housing costs for owners
+median_monthly_owner_cost_pct,Median monthly housing costs for owners (% of median income)
+median_household_income,Median household income
+median_household_income_w_mortgage,Median income for households with mortgages
+median_household_income_wo_mortgage,Median income for households without mortgages
+median_monthly_housing_costs,Median monthly housing costs
+total_housing_units,Total housing units
+owner_occupied_housing_units,Owner occupied housing units
+renter_occupied_housing_units,Renter occupied housing units
+pct_white,White population (%)
+pct_hisp,Hispanic population (%)
+pct_black_pop,Black population (%)
+pct_family_poverty,Families below the federal poverty level (%)
+pct_owner_occupied,Owner occupied units (%)
+pct_renter_occupied,Renter occupied units (%)
+pct_built_1949earlier,Built before 1950 (%)
+pct_built_1939earlier,Built before 1940 (%)
+quartile_median_household_income,Median household income (quartile)
+quartile_pct_black_pop,% Black population (quartile)
+quartile_pct_family_poverty,% family poverty (quartile)
+quartile_monthly_owner_cost_pct,Median monthly housing costs for owners as % of median income (quartile)
+request_rate_personyears,Request rate per person-year
+address_rate_personyears,Address rate per person-year
