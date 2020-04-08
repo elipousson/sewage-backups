@@ -4,6 +4,7 @@ author:
 - "Erin Burman"
 - "Eli Pousson"
 date: "4/4/2020"
+bibliography: references.bib
 ---
 
 ```{r setup, include=FALSE}
@@ -32,14 +33,11 @@ library(gtsummary) # for creating summary tables
 library(labelled) # for labelling variables and values
 ```
 
-# Methods
+# Data
 
-## Data
-
-### 311 service requests
+## 311 service requests
 
 Data on 311 calls about basement sewage backups from October 2010 through the present was imported from [Open Baltimore](https://data.baltimorecity.gov/) using the RSocrata package. These requests are a proxy for the actual occurrence of basement sewage backups but do have several limitations. The requests include backups attributed to a range of issues including issues within the property’s own plumbing. These latter backups are considered the responsibility of the property owner and are not eligible for the city’s reimbursement program. We also believe that backups may be under-reported by tenants under the assumption that tenants are more likely to report an issue to a landlord who may or may not report to 311. We also assume that property-owners who may be unfamiliar with the reimbursement program may not see the need to report a smaller scale sewage backup.
-
 
 ```{r import_requests}
 # Create an account on Open Baltimore and get an API key to use RSocrata.
@@ -272,11 +270,11 @@ We then matched the remaining 21,804 requests to the census tract and a neighbor
 
 92 requests could not be matched to a neighborhood. These included approximately 85.9% (n = 79) located outside the city and 14.1% (n = 13) with location issues that placed them outside the boundaries of any neighborhood in Baltimore City.
 
-We also also matched each tract to a wastewater treatment plant by checking whether tracts were located inside or outside of the service area for the Back River Wastewater Treatment Plant. We traced the boundaries of the service area using a 2004 map (published in the City of Baltimore 2006 Comprehensive Water and Wastewater Treatment Plan) that had been [georectified using the Map Warper web service](http://mapwarper.net/maps/46308). For any tracts that crossed the boundary between the Back River and Patapsco service area, we matched the tract to the service area that contained a majority of the area of the tract.
+We also also matched each tract to a wastewater treatment plant by checking whether tracts were located inside or outside of the service area for the Back River Wastewater Treatment Plant. We traced the boundaries of the service area using a 2004 map (published in the City of Baltimore 2006 Comprehensive Water and Wastewater Treatment Plan) that we previously [georectified using the Map Warper web service](http://mapwarper.net/maps/46308) [@CityBaltimoreComprehensive2006]. For any tracts that crossed the boundary between the Back River and Patapsco service area, we matched the tract to the service area that contained a majority of the area of the tract.
 
 When we matched requests to tracts and neighborhoods, we counted the total number of requests and unique addresses for each tract. We also determined the median days to close for each tract. We calculated these aggregate counts for the total period of the analysis and for each full year (2017, 2018, 2019) for use in a sensitivity analysis.
 
-### Demographic and socioeconomic data for Census tracts
+## Demographic and socioeconomic characteristics
 
 Tract-level data on demographic and socioeconomic characteristics were taken from the Census Bureau’s American Community Survey (ACS) 2014-2018 5-year estimates (using the tidycensus R package to import the data). Selected variables for this analysis included:
 
@@ -375,6 +373,14 @@ acs_summary_requests_tracts <- summary_requests_tracts %>%
     address_rate_personyears = address_count / (total_pop * 365)
   )
 
+# Label combined summary of requests/ACS data
+acs_summary_requests_tracts$quartile_median_household_income <- as.factor(acs_summary_requests_tracts$quartile_median_household_income)
+
+var_label(acs_summary_requests_tracts) <- rio::import("data/acs_summary_requests_tracts_labels.csv", "csv") %>%
+  select(variable, label) %>%
+  codebook::dict_to_list()
+
+
 acs_summary_requests_tracts_annual <- summary_requests_tracts_annual %>%
   full_join(acs_tract_wide, by = "geoid") %>%
   mutate(
@@ -382,29 +388,32 @@ acs_summary_requests_tracts_annual <- summary_requests_tracts_annual %>%
     address_rate_personyears = request_count / (total_pop * 365)
   )
 
-acs_requests_tracts <- requests_tracts %>%
-  full_join(acs_tract_wide, by = "geoid")
+# Label combined summary of requests/ACS data
+acs_summary_requests_tracts_annual$quartile_median_household_income <- as.factor(acs_summary_requests_tracts_annual$quartile_median_household_income)
 
+var_label(acs_summary_requests_tracts_annual) <- rio::import("data/acs_summary_requests_tracts_labels.csv", "csv") %>%
+  select(variable, label) %>%
+  codebook::dict_to_list()
+
+# Write to CSV file
 # acs_summary_requests_tracts %>% write_csv('acs_summary_requests_tracts.csv')
 # acs_summary_requests_tracts_annual %>% write_csv('acs_requests_tracts_annual.csv')
-# acs_requests_tracts %>% write_csv('acs_requests_tracts.csv')
+# acs_requests_tracts <- requests_tracts %>% full_join(acs_tract_wide, by = "geoid") %>% write_csv('acs_requests_tracts.csv')
 ```
 
 The share of structures built before 1950 is a combination of the variables for structures built before 1939 and structures built between 1940 and 1949 divided by the total number of structures. The other percent variables are calculated as a share of the summary variable for the corresponding ACS table. The median household income was used to generate a quartile with the lowest median income group (\$19,375 to $48,092) using as the reference group in the regression analysis.
 
-# Analysis
-
-## Exploratory Analysis
+# Exploratory analysis
 
 Using R, we conducted an exploratory analysis to plot the frequency of 311 service requests for basement sewage back-ups looking at request counts by address, over time (by month, quarter, and year), and over neighborhoods, tracts, and wastewater service areas.
 
-### Address and request counts
+## Address and request counts
 
 There are 12,967 distinct addresses associated with service requests in this period. 37.7% of these addresses (n = 4,887) are associated with more than one service request, 8.8% (n = 1146) with more than three, and 2.7% (n = 344) with more than five. The median number of service requests is just one but the maximum number of service requests is 23.
 
 For addresses with large numbers of associated service requests, it is unclear whether each service request represents a separate basement sewage backup event or if some requests are simply repeated requests for a single persistent or unresolved sewage backup (and were not marked as “duplicate” requests). For example, 801 Showell Court in the Johnston Square neighborhood is associated with 14 service requests including requests on April 24 and 26, and June 26 and 27, 2018. The table below lists the ten property addresses with the largest number of requests.
 
-### Requests over by month, quarter, and year
+## Requests by time period
 
 In exploring the distribution of service requests by time and location, we looked at both the request count and the address count. A plot showing the number of requests per month is included in Appendix 2. A table showing the number of requests and addresses per quarter is included below. Totalling requests by year 2018 saw the greatest number—8.4% more than in 2017 and 20.2% more than in 2019. 2018 was also Baltimore's wettest year on record with a total of 71.82 inches of rain throughout the year. Increased rainfall is consistent with expected changes due to a warming climate and a recent study by Blue Water Baltimore and the U.S. Geological Service.
 
@@ -489,7 +498,7 @@ median_days_to_close_by_month <- summary_requests_monthly %>%
 median_days_to_close_by_month + labs(x = plot_xlab, y = plot_ylab, title = plot_title, subtitle = plot_subtitle, caption = plot_caption) + hrbrthemes::theme_ipsum_rc()
 ```
 
-```{r request_count_by_year_facet_map, fig.width = 6.4, fig.height = 7.2}
+```{r request_count_by_year_facet_map, fig.fullwidth=TRUE}
 map_title <- "311 service requests for\nbasement sewage backups by tract"
 map_subtitle <- "Total by year from 2017 to 2019"
 map_fill <- "Number of requests"
@@ -514,9 +523,11 @@ request_count_by_year + theme_void() + guides(color = FALSE) +
   )
 ```
 
-### Requests by neighborhood
+## Requests by neighborhood
 
-A large share of the neighborhoods with the greatest number of service requests are located in northeast Baltimore within the Heritage Run and Outfall Wastewater System Service Areas. Belair-Edison, Frankford, and Glenham-Belhar all saw more than 300 service requests in this 26 month period. 14 out of 20 neighborhoods with more than 200 service requests were located in this same area. Backups in this area are due, at least in part, to a very large scale persistent sewage backup along the sewer interceptor flowing to the Back River Wastewater Treatment Plant.
+A large share of the neighborhoods with the greatest number of service requests are located in northeast Baltimore within the Heritage Run and Outfall Wastewater System Service Areas.
+
+Belair-Edison, Frankford, and Glenham-Belhar all saw more than 300 service requests in this 26 month period. 14 out of 20 neighborhoods with more than 200 service requests were located in this same area. Backups in this area are due, at least in part, to a very large scale persistent sewage backup along the sewer interceptor flowing to the Back River Wastewater Treatment Plant.
 
 ```{r neighborhood_table, results = "show"}
 # TODO: Rework this table
@@ -577,7 +588,7 @@ A second cluster is located in northwest Baltimore within the Gwynns Falls Waste
 
 In addition to clustering caused directly by physical issues within the wastewater treatment system, it is also possible that clustering may be partially due to greater awareness or willingness to report in some neighborhoods than others. Reports on successful litigation over basement backups, reports on the city’s reimbursement program, or ongoing advocacy by Blue Water Baltimore and other area organizations on the importance of reporting backups to 311 may contribute to greater awareness in some neighborhoods more than others.
 
-### Requests by tract
+## Requests by tract
 
 Overall, the distribution of requests by tract show very similar patterns as the distribution of requests by neighborhood with the same clusters in northwest and northeast Baltimore. However, the primary purpose of aggregating requests by Census tract is to allow the comparison of different areas based on demographic characteristics. For these initial comparisons, we used the gtsummary R package that used paired t-tests to compare the tracts using the same selected variables we subsequently explored in the regression analysis.
 
@@ -696,7 +707,7 @@ request_count_quartile_facet_map + theme_void() + guides(color = FALSE) +
 
 First, we looked at a comparison of the tracts in the highest quartile of requests (ranging from 130 to 402 per tract) to the bottom three quartiles (ranging from 1 to 127 requests per tract). A map of the quartiles is included in Appendix 1 and a table showing this comparison is included below. Overall, the 50 tracts in the top quartile are slightly older, have fewer families in poverty, more owners, and have a smaller share of structures built before 1940. 80% of these tracts are located in the middle income quartiles (ranging from ) with only 10% each in the lowest and highest income quartiles.
 
-### Requests by wastewater treatment plant service area
+## Requests by treatment service area
 
 ```{r treatment_plant, fig.width = 6, fig.height = 6.75}
 map_title <- "Tracts matched to Back River and\nPatapsco Wastewater Treatment Plants"
@@ -715,6 +726,8 @@ treatment_plant_map <- summary_requests_tracts %>%
 
 treatment_plant_map + theme_void() + guides(color = FALSE) + labs(title = map_title, fill = map_fill, caption = map_caption) + hrbrthemes::theme_ipsum_rc() + theme(panel.grid.major = element_line(color = "transparent"), axis.title = element_text(color = "transparent"), axis.text = element_text(color = "transparent"))
 ```
+
+Next, we looked at differences by wastewater treatment service area. Overall, the 32 tracts within the Patapsco service area saw a significantly higher median number of requests and those requests were associated with a larger number of addresses within each tract. The median age, share of families in poverty, owner occupancy share, were all the same but the tracts in the Patapsco had a larger median share of Black residents (90%) than the tracts in the Back River area (70%).
 
 ```{r treatment_plant_service_area_table, results = 'show'}
 treatment_plant_service_area_table <- acs_summary_requests_tracts %>%
@@ -742,9 +755,7 @@ treatment_plant_service_area_table <- acs_summary_requests_tracts %>%
 treatment_plant_service_area_table
 ```
 
-Next, we looked at differences by wastewater treatment service area. Overall, the 32 tracts within the Patapsco service area saw a significantly higher median number of requests and those requests were associated with a larger number of addresses within each tract. The median age, share of families in poverty, owner occupancy share, were all the same but the tracts in the Patapsco had a larger median share of Black residents (90%) than the tracts in the Back River area (70%).
-
-### Requests by days to close
+## Requests by days to close
 
 Open Baltimore’s public data on service requests’ days-to-close exhibited unusual properties. The days-to-close variable ranged from negative one second to 654 days. The data also indicate that often, many service requests would all be closed at the same time.
 
@@ -770,6 +781,63 @@ summary_requests_tracts %>%
   hrbrthemes::theme_ipsum_rc()
 ```
 
-## Regression analysis
+# Regression analysis
 
-Using Stata, we fit a negative binomial model of tracts’ service request rate on tract demographic variables including percent Black, percent owner-occupied, income by quartiles, median age, median rent, percent of houses built before 1949, and percent of families in poverty. We also stratified by year and fit this model for 2016, 2017, and 2018.
+We then fit a negative binomial model of tracts’ service request rate on tract demographic variables including percent Black population, percent owner-occupied, median income by quartile, median age, median rent, percent of houses built before 1949, and percent of families in poverty. We fit these models in both Stata and R but only the results from R are presented here.
+
+The number of service requests was significantly and positively associated with increases in percent Black population (IRR 1.69, CI = 1.50, 2.52; p < 0.001) and owner-occupied housing units (IRR 4.58, CI = 3.20, 6.58; p < 0.001), and median household income in the second-lowest quartile ($49,054 - $62,250) compared to the reference quartile ($19,375 - $48,092). All other income quartiles, percent of homes built before 1949, median rent, and percent of families in poverty were not significant and excluded from the final model. Percent white and percent renter were excluded due to collinearity.
+
+```{r glm_nb}
+fit_glmnb <- function(df) {
+  MASS::glm.nb(request_count ~ pct_black_pop + quartile_median_household_income + pct_owner_occupied + pct_built_1949earlier + offset(log(total_pop)), data = df)
+}
+
+model_selected <- acs_summary_requests_tracts %>% 
+  fit_glmnb()
+
+model_selected_annual <- acs_summary_requests_tracts_annual %>%
+  filter(!is.na(year_created), year_created < 2020) %>%
+  group_by(year_created) %>%
+  nest() %>%
+  mutate(
+    model = map(data, fit_glmnb),
+  )
+```
+
+```{r glm_nb_table, results = "show"}
+# Create a table for the model with all data
+model_selected_tbl <- model_selected %>% 
+  tbl_regression(exponentiate = TRUE)
+
+# Fix value labels for median income quartiles
+model_selected_tbl[["table_body"]][["label"]][3:6] <- c("$19,375 to $48,092 (1)", "$49,054 to $62,250 (2)", "$62,695 to $82,139 (3)", "$83,929 to $213,200 (4)")
+
+# Display table of the combined model
+model_selected_tbl
+```
+
+We also stratified by year and fit this model for 2016, 2017, and 2018. 
+
+Regressions including only annual data from 2017, 2018, and 2019 indicate relative stability of coefficients over time. The IRR for percent Black population increased slightly each consecutive year.
+
+```{r glm_nb_table_each_year, results = "show"}
+# Create tables models with each year of data
+model_selected_2017 <- model_selected_annual[[3]][[1]] %>% 
+  tbl_regression(exponentiate = TRUE)
+
+model_selected_2018 <- model_selected_annual[[3]][[2]] %>% 
+  tbl_regression(exponentiate = TRUE)
+
+model_selected_2019 <- model_selected_annual[[3]][[3]] %>%
+  tbl_regression(exponentiate = TRUE)
+
+# Merge tables
+model_selected_each_year <- tbl_merge(list(model_selected_2017, model_selected_2018, model_selected_2019), tab_spanner = c("2017", "2018", "2019"))
+
+# Fix quartile labels
+model_selected_each_year[["table_body"]][["label"]][2:6] <- c("Median household income (quartile)", "$19,375 to $48,092 (1)", "$49,054 to $62,250 (2)", "$62,695 to $82,139 (3)", "$83,929 to $213,200 (4)")
+
+model_selected_each_year
+```
+
+# References
