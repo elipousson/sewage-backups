@@ -11,7 +11,7 @@ bibliography: references.bib
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Background
+# Increase in sewage backups in Baltimore
 
 The proliferation of sewage backups in Baltimore is a result of aging wastewater infrastructure and the city’s 2002 Consent Decree with the Environmental Protection Agency. The federal agreement required the city to close off sewer overflow pipes that released raw sewage into streams and rivers. The decree did not fund infrastructure improvements that would prevent stormwater from leaking into sewage pipes, however, so the overburdened sewers instead began to overflow into residents’ basements.
 
@@ -20,3 +20,5 @@ In April 2018, the EPA and Maryland Department of the Environment agreed to a Mo
 There are many reasons to be concerned about both the financial and health burdens associated with basement sewer backups and possible disparities in the city’s response. Previous analyses have revealed that backups in Baltimore City are more likely to occur in majority-Black neighborhoods, indicating an environmental injustice [@EzellResidentialSewageBackups2018]. The financial and health burdens associated with basement sewer backups are likely to be more severe for low-income households that may lack adequate property insurance coverage or the resources to hire a private cleanup company. In addition, Blue Water Baltimore and other advocates have highlighted how limited public education about the reimbursement program, a strict 24-hour deadline for reporting back-ups, demanding documentation requirements, and exemptions for backups during large rain events have all contributed to the small number of applicants and high rejection rate for the Expedited Reimbursement Program [@BlueWaterBaltimoreSewage].
 
 Finally, multiple investigations have found that Baltimore DPW is less responsive to waste management needs in marginalized communities [@RichmanCall311dirty2019], potentially further jeopardizing timely response and reimbursement for those most harmed by basement sewage backups.
+
+# References
